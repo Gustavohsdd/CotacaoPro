@@ -7,9 +7,9 @@ import express from "express";
 import cors from "cors";
 
 // Importa os roteadores dos módulos
-import { fornecedoresRouter } from "./fornecedores.js";
-import { produtosRouter } from "./produtos.js";
-import { subProdutosRouter } from "./subprodutos.js"; // Adicionado
+import { fornecedoresRouter } from "./modules/fornecedores.js";
+import { produtosRouter } from "./modules/produtos.js";
+import { subProdutosRouter } from "./modules/subprodutos.js";
 
 // Inicializa o Firebase Admin SDK
 admin.initializeApp();
