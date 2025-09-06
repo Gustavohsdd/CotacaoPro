@@ -80,13 +80,11 @@
   </div>
 
   <script type="module">
-    // Importações do Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAuth, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
     import { getFirestore, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
     import { getStorage, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
-    // COLE AQUI seu firebaseConfig do console:
     const firebaseConfig = {
       apiKey: "AIzaSyA8DY8WU_l_bfMgbzxpaDuAHp9GAmeYOAE",
       authDomain: "cotacao-pro.firebaseapp.com",
@@ -96,13 +94,11 @@
       appId: "1:957072245454:web:8ec2940ecfe6d7342e869f"
     };
 
-    // Inicialização do Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const storage = getStorage(app);
 
-    // Conecta aos emuladores se estiver rodando localmente
     if (location.hostname === "localhost") {
       connectAuthEmulator(auth, "http://127.0.0.1:9109");
       connectFirestoreEmulator(db, "127.0.0.1", 8081);
@@ -113,9 +109,19 @@
   </script>
 
   <script>
-    // Lógica de navegação (do PaginaPrincipal.html, adaptada para Firebase)
     const mainContentArea = document.getElementById('mainContentArea');
     let activeMenuItem = null;
+
+    // Mapeamento de 'viewName' para o nome do arquivo HTML.
+    // Isso centraliza a lógica de roteamento aqui no frontend.
+    const index_VIEW_FILENAME_MAP = {
+      "fornecedores": "FornecedoresView.html",
+      "produtos": "ProdutosView.html",
+      "subprodutos": "SubProdutosView.html",
+      "cotacoes": "CotacoesView.html",
+      "notasfiscais": "NotasFiscaisView.html"
+      // Adicione outras views aqui conforme for migrando
+    };
 
     function index_setActiveMenu(viewName) {
       if (activeMenuItem) {
@@ -127,7 +133,7 @@
         currentElement.classList.add('active');
         activeMenuItem = currentElement;
       } else {
-        console.warn("Menu item não encontrado para o ID:", menuItemId, ". Verifique se o ID no HTML corresponde à viewName '"+viewName+"'.");
+        console.warn("Menu item não encontrado para o ID:", menuItemId);
       }
     }
 
@@ -135,10 +141,19 @@
       mainContentArea.innerHTML = `<div class="p-4 text-center text-blue-600"><svg class="animate-spin h-6 w-6 text-blue-500 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Carregando ${viewName}...</div>`;
       index_setActiveMenu(viewName);
 
-      // Substitui google.script.run por fetch para a Cloud Function
-      fetch(`/api/view/${viewName}`)
+      const fileName = index_VIEW_FILENAME_MAP[viewName];
+      if (!fileName) {
+          const errMsg = `A view '${viewName}' não está mapeada para um arquivo HTML.`;
+          mainContentArea.innerHTML = `<div class="error-message p-4">${errMsg}</div>`;
+          console.error(errMsg);
+          return;
+      }
+
+      // CORREÇÃO: Busca o arquivo HTML diretamente do Firebase Hosting (pasta /views/)
+      fetch(`/views/${fileName}`)
         .then(response => {
           if (!response.ok) {
+            // O erro 'Not Found' que você viu será capturado aqui.
             throw new Error(`Erro na rede: ${response.statusText}`);
           }
           return response.text();
@@ -146,7 +161,6 @@
         .then(htmlContent => {
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = htmlContent;
-
           mainContentArea.innerHTML = '';
 
           // Adiciona o conteúdo HTML
@@ -160,19 +174,26 @@
           const scriptsToExecute = Array.from(tempDiv.querySelectorAll('script'));
           scriptsToExecute.forEach(oldScript => {
             const newScript = document.createElement('script');
+            // Copia atributos (como src, se houver)
             Array.from(oldScript.attributes).forEach(attr => {
               newScript.setAttribute(attr.name, attr.value);
             });
+            // Copia o conteúdo do script inline
             newScript.textContent = oldScript.textContent;
+            // Adiciona ao body para que seja executado
             document.body.appendChild(newScript);
           });
         })
         .catch(error => {
           const errMsg = error.message || "Erro desconhecido.";
           mainContentArea.innerHTML = `<div class="error-message p-4">Erro ao carregar a view '${viewName}': ${errMsg}</div>`;
-          console.error("Erro ao chamar a API para '" + viewName + "':", error);
+          console.error(`Erro ao buscar o arquivo '${fileName}':`, error);
         });
     }
+
+    // Para permitir que as views chamem a função global
+    window.index_navigateTo = index_navigateTo;
+
   </script>
 </body>
 </html>
