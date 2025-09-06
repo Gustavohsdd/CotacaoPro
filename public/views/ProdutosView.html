@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <title>Produtos</title>
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c5c5c5;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .btn-painel-acao {
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: background-color 0.15s ease-in-out, opacity 0.15s ease-in-out;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            color: white;
+            min-width: 100px;
+        }
+
+        .btn-painel-acao svg {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        .btn-painel-acao:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-painel-novo {
+            background-color: #2563eb;
+        }
+
+        .btn-painel-novo:hover:not(:disabled) {
+            background-color: #1d4ed8;
+        }
+
+        .btn-painel-editar {
+            background-color: #f59e0b;
+        }
+
+        .btn-painel-editar:hover:not(:disabled) {
+            background-color: #d97706;
+        }
+
+        .btn-painel-excluir {
+            background-color: #ef4444;
+        }
+
+        .btn-painel-excluir:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
+
+        .btn-painel-subprodutos {
+            background-color: #10b981;
+        }
+
+        .btn-painel-subprodutos:hover:not(:disabled) {
+            background-color: #059669;
+        }
+
+        .tabela-interativa tbody tr {
+            cursor: pointer;
+        }
+
+        .tabela-interativa tbody tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        .tabela-interativa tbody tr.linha-selecionada {
+            background-color: #bae6fd !important;
+        }
+
+        .tabela-interativa tbody tr.linha-selecionada td {
+            color: #075985;
+        }
+
+        .tabela-interativa tbody tr.linha-selecionada:hover {
+            background-color: #bae6fd !important;
+        }
+
+        .btn-paginacao {
+            padding: 0.25rem 0.75rem;
+            border: 1px solid #D1D5DB;
+            background-color: #FFFFFF;
+            color: #374151;
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-paginacao:hover {
+            background-color: #F9FAFB;
+        }
+
+        .btn-paginacao:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mx-auto p-4">
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <h2 class="text-3xl font-bold text-gray-800">Produtos</h2>
+        </div>
+
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-x-4 gap-y-3">
+            <div id="ProdutosScript_painelAcoesGlobal"
+                class="p-3 bg-gray-100 rounded-lg shadow-md flex flex-wrap items-center gap-2 sm:gap-3">
+                <button id="ProdutosScript_btnNovoProdutoGlobal" class="btn-painel-acao btn-painel-novo">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M10 3a1 1 0 011 1v4h4a1 1 0 110 2h-4v4a1 1 0 11-2 0v-4H5a1 1 0 110-2h4V4a1 1 0 011-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <span>Novo Produto</span>
+                </button>
+                <span class="border-l h-6 mx-1 sm:mx-2 self-center"></span>
+                <button id="ProdutosScript_btnEditarGlobal" disabled
+                    class="btn-painel-acao btn-painel-editar disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                        <path fill-rule="evenodd"
+                            d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <span>Editar</span>
+                </button>
+                <button id="ProdutosScript_btnExcluirGlobal" disabled
+                    class="btn-painel-acao btn-painel-excluir disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <span>Excluir</span>
+                </button>
+                <button id="ProdutosScript_btnSubprodutosGlobal" disabled
+                    class="btn-painel-acao btn-painel-subprodutos disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path
+                            d="M3.75 3.75a.75.75 0 000 1.5h12.5a.75.75 0 000-1.5H3.75zM3.75 7.5a.75.75 0 000 1.5h12.5a.75.75 0 000-1.5H3.75zM3.75 11.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H3.75z" />
+                    </svg>
+                    <span>SubProdutos</span>
+                </button>
+            </div>
+            <div class="flex items-center">
+                <input type="text" id="ProdutosScript_campoBusca"
+                    class="w-full sm:w-60 md:w-72 p-2 border-2 border-blue-400 rounded-lg shadow-sm text-sm text-gray-700 placeholder-gray-500 focus:ring-2 focus:ring-blue-300 focus:border-blue-600"
+                    placeholder="Buscar produto...">
+            </div>
+        </div>
+
+        <div id="ProdutosScript_mensagemFeedbackGlobal" class="mb-4"></div>
+
+        <div class="bg-white shadow-xl rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full table-auto tabela-interativa" id="ProdutosScript_tabelaProdutos">
+                    <thead class="bg-blue-600 text-white uppercase text-sm leading-normal">
+                        <tr>
+                            <th colspan="5" class="px-4 py-3 text-left text-xs font-semibold tracking-wider">
+                                Carregando Cabeçalhos...
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-800 text-sm font-light divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="5" class="text-center p-8 text-gray-500">
+                                <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2"
+                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                Carregando dados dos produtos...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div id="ProdutosScript_controlesPaginacao"
+            class="mt-6 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-700 gap-y-2"></div>
+    </div>
+
+    <div id="ProdutosScript_modalProduto"
+        class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-start hidden z-50 pt-6 md:pt-10 pb-6">
+        <div class="relative mx-auto p-5 md:p-6 border w-full max-w-xl shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3 border-b mb-5">
+                <div class="flex items-baseline space-x-3">
+                    <h3 id="ProdutosScript_tituloModal" class="text-xl md:text-2xl font-semibold text-gray-800">Produto
+                    </h3>
+                    <div id="ProdutosScript_divIdExibicaoModal" class="flex items-center hidden">
+                        <span class="text-xs md:text-sm font-medium text-gray-500 mr-1">ID:</span>
+                        <input type="text" id="ProdutosScript_campoIdExibicaoModal"
+                            class="p-1 text-xs md:text-sm bg-gray-100 border-none rounded w-12 md:w-16 text-center"
+                            readonly>
+                    </div>
+                </div>
+                <button id="ProdutosScript_btnFecharModalProduto"
+                    class="text-gray-400 hover:text-gray-600 text-3xl font-light leading-none p-1">&times;</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto pr-1 md:pr-2 custom-scrollbar">
+                <form id="ProdutosScript_formProduto" class="space-y-4">
+                    <input type="hidden" id="ProdutosScript_campoIdFormModal" name="ID">
+                    <div>
+                        <label for="ProdutosScript_inputNomeProduto"
+                            class="block text-sm font-medium text-gray-700 mb-1">Produto*</label>
+                        <input type="text" id="ProdutosScript_inputNomeProduto" name="Produto" required
+                            class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="ProdutosScript_inputTamanhoProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Tamanho</label>
+                            <input type="text" id="ProdutosScript_inputTamanhoProduto" name="Tamanho"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="ProdutosScript_inputUnidadeProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">UN (Unidade)*</label>
+                            <input type="text" id="ProdutosScript_inputUnidadeProduto" name="UN" required
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="ProdutosScript_inputCategoriaProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                            <input type="text" id="ProdutosScript_inputCategoriaProduto" name="Categoria"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="ProdutosScript_inputABCProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Curva ABC</label>
+                            <select id="ProdutosScript_inputABCProduto" name="ABC"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Selecione...</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="ProdutosScript_inputEstoqueMinimo"
+                                class="block text-sm font-medium text-gray-700 mb-1">Estoque Mínimo</label>
+                            <input type="number" id="ProdutosScript_inputEstoqueMinimo" name="Estoque Minimo"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                step="any" min="0">
+                        </div>
+                        <div>
+                            <label for="ProdutosScript_selectStatusProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select id="ProdutosScript_selectStatusProduto" name="Status"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <option value="Ativo" selected>Ativo</option>
+                                <option value="Inativo">Inativo</option>
+                                <option value="Bloqueado">Bloqueado</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="ProdutosScript_mensagemErroModalProduto" class="text-sm my-3 min-h-[20px]"></div>
+                    <div class="flex justify-end items-center pt-4 border-t mt-5">
+                        <button type="button" id="ProdutosScript_btnCancelarModalProduto"
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md mr-3 shadow-sm transition-colors">Cancelar</button>
+                        <button type="submit" id="ProdutosScript_btnSalvarModalProduto"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors">Salvar
+                            Produto</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="ProdutosScript_modalConfirmarExclusaoProduto"
+        class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-center hidden z-50 px-4">
+        <div class="relative mx-auto p-6 border w-full max-w-lg shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3 border-b mb-4">
+                <h3 id="ProdutosScript_tituloModalConfirmarExclusaoProduto" class="text-lg font-semibold text-gray-800">
+                    Confirmar Exclusão</h3>
+                <button id="ProdutosScript_btnFecharModalConfirmarExclusaoProduto"
+                    class="text-gray-400 hover:text-gray-600 text-3xl font-light leading-none p-1">&times;</button>
+            </div>
+            <div class="text-sm text-gray-700 mb-1">
+                <p>Você está prestes a excluir o produto: <strong
+                        id="ProdutosScript_nomeProdutoParaExcluirModal"></strong>.</p>
+                <p id="ProdutosScript_mensagemSubProdutosVinculadosProdutoModal" class="mt-2"></p>
+            </div>
+            <div id="ProdutosScript_opcoesExclusaoSubProdutosProduto" class="mt-4 space-y-3"></div>
+            <div id="ProdutosScript_mensagemErroModalConfirmarExclusaoProduto" class="text-sm mt-3 mb-3 min-h-[20px]">
+            </div>
+            <div class="flex justify-end items-center pt-4 border-t mt-5">
+                <button id="ProdutosScript_btnCancelarModalConfirmarExclusaoProduto" type="button"
+                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md mr-3 shadow-sm transition-colors">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ProdutosScript_modalRealocarSubProdutosProduto"
+        class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-start hidden z-50 pt-6 md:pt-10 pb-6 px-4">
+        <div class="relative mx-auto p-5 md:p-6 border w-full max-w-2xl shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3 border-b mb-5">
+                <h3 id="ProdutosScript_tituloModalRealocarSubProdutosProduto"
+                    class="text-xl font-semibold text-gray-800">Realocar Subprodutos</h3>
+                <button id="ProdutosScript_btnFecharModalRealocarSubProdutosProduto"
+                    class="text-gray-400 hover:text-gray-600 text-3xl font-light leading-none p-1">&times;</button>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Realocar subprodutos do produto <strong
+                    id="ProdutosScript_nomeProdutoParaRealocarModal"></strong>.</p>
+            <div id="ProdutosScript_listaSubProdutosProdutoParaRealocar"
+                class="max-h-[55vh] overflow-y-auto space-y-4 pr-1 md:pr-2 custom-scrollbar">
+                <p class="text-center text-gray-500 py-4">Carregando...</p>
+            </div>
+            <div id="ProdutosScript_mensagemErroModalRealocarSubProdutosProduto" class="text-sm mt-4 mb-3 min-h-[20px]">
+            </div>
+            <div class="flex justify-end items-center pt-4 border-t mt-6">
+                <button type="button" id="ProdutosScript_btnCancelarModalRealocarSubProdutosProduto"
+                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md mr-3 shadow-sm transition-colors">Cancelar</button>
+                <button type="button" id="ProdutosScript_btnConfirmarRealocacaoProduto"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors">Confirmar
+                    Realocação e Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ProdutosScript_modalGerenciarSubprodutos"
+        class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-start hidden z-50 pt-6 md:pt-10 pb-6 px-4">
+        <div class="relative mx-auto p-5 md:p-6 border w-full max-w-2xl lg:max-w-3xl shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3 border-b mb-4">
+                <h3 class="text-xl md:text-2xl font-semibold text-gray-800">Gerenciar SubProdutos de: <span
+                        id="ProdutosScript_nomeProdutoPrincipalModalSubprodutos" class="font-bold"></span></h3>
+                <button id="ProdutosScript_btnFecharModalGerenciarSubprodutos"
+                    class="text-gray-400 hover:text-gray-600 text-3xl font-light leading-none p-1">&times;</button>
+            </div>
+            <div class="mb-6">
+                <h4 class="text-lg font-medium text-gray-700 mb-2">SubProdutos Vinculados Atualmente:</h4>
+                <div id="ProdutosScript_listaSubprodutosAtuais"
+                    class="max-h-60 overflow-y-auto border rounded-md p-3 bg-gray-50 custom-scrollbar min-h-[50px]">
+                    <p class="text-gray-500 text-sm">Carregando subprodutos vinculados...</p>
+                </div>
+            </div>
+            <div class="border-t pt-4">
+                <button id="ProdutosScript_btnToggleAdicionarSubproduto"
+                    class="w-full flex justify-between items-center p-3 bg-gray-100 hover:bg-gray-200 rounded-md text-left text-gray-700 font-medium focus:outline-none">
+                    <span>Adicionar/Editar SubProduto Vinculado</span>
+                    <svg id="ProdutosScript_iconeToggleAdicionarSubproduto"
+                        class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div id="ProdutosScript_formAdicionarSubprodutoContainer"
+                    class="hidden mt-4 p-4 border rounded-md bg-white space-y-4">
+                    <h5 id="ProdutosScript_tituloFormSubproduto" class="text-md font-semibold text-gray-700">Novo
+                        SubProduto</h5>
+                    <form id="ProdutosScript_formAdicionarSubproduto">
+                        <input type="hidden" id="ProdutosScript_produtoPaiNomeFormSubproduto" name="Produto Vinculado">
+                        <input type="hidden" id="ProdutosScript_subProdutoIdEdicao" name="ID_SubProduto_Edicao">
+                        <div>
+                            <label for="ProdutosScript_inputNomeNovoSubproduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Nome do SubProduto*</label>
+                            <input type="text" id="ProdutosScript_inputNomeNovoSubproduto" name="SubProduto" required
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                            <div>
+                                <label for="ProdutosScript_inputCategoriaNovoSubproduto"
+                                    class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                                <input type="text" id="ProdutosScript_inputCategoriaNovoSubproduto" name="Categoria"
+                                    class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div>
+                                <label for="ProdutosScript_selectFornecedorNovoSubproduto"
+                                    class="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
+                                <select id="ProdutosScript_selectFornecedorNovoSubproduto" name="Fornecedor"
+                                    class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                                    <option value="">Carregando fornecedores...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                            <div><label for="ProdutosScript_inputTamanhoNovoSubproduto"
+                                    class="block text-sm font-medium text-gray-700 mb-1">Tamanho</label><input
+                                    type="text" id="ProdutosScript_inputTamanhoNovoSubproduto" name="Tamanho"
+                                    class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                            <div><label for="ProdutosScript_inputUnidadeNovoSubproduto"
+                                    class="block text-sm font-medium text-gray-700 mb-1">UN*</label><input type="text"
+                                    id="ProdutosScript_inputUnidadeNovoSubproduto" name="UN" required
+                                    class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                            <div><label for="ProdutosScript_inputFatorNovoSubproduto"
+                                    class="block text-sm font-medium text-gray-700 mb-1">Fator</label><input
+                                    type="number" id="ProdutosScript_inputFatorNovoSubproduto" name="Fator"
+                                    class="w-full p-2 border border-gray-300 rounded-md shadow-sm" step="any"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                            <div><label for="ProdutosScript_inputNCMNovoSubproduto"
+                                    class="block text-sm font-medium text-gray-700 mb-1">NCM</label><input type="text"
+                                    id="ProdutosScript_inputNCMNovoSubproduto" name="NCM"
+                                    class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                            <div><label for="ProdutosScript_inputCSTNovoSubproduto"
+                                    class="block text-sm font-medium text-gray-700 mb-1">CST</label><input type="text"
+                                    id="ProdutosScript_inputCSTNovoSubproduto" name="CST"
+                                    class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                            <div><label for="ProdutosScript_inputCFOPNovoSubproduto"
+                                    class="block text-sm font-medium text-gray-700 mb-1">CFOP</label><input type="text"
+                                    id="ProdutosScript_inputCFOPNovoSubproduto" name="CFOP"
+                                    class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></div>
+                        </div>
+                        <div>
+                            <label for="ProdutosScript_selectStatusNovoSubproduto"
+                                class="block text-sm font-medium text-gray-700 mb-1 mt-3">Status</label>
+                            <select id="ProdutosScript_selectStatusNovoSubproduto" name="Status"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                                <option value="Ativo" selected>Ativo</option>
+                                <option value="Inativo">Inativo</option>
+                            </select>
+                        </div>
+                        <div id="ProdutosScript_mensagemErroModalAdicionarSubproduto" class="text-sm my-3 min-h-[20px]">
+                        </div>
+                        <div class="flex justify-end mt-4 space-x-3">
+                            <button type="button" id="ProdutosScript_btnCancelarFormSubproduto"
+                                class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md shadow-sm">Cancelar</button>
+                            <button type="submit" id="ProdutosScript_btnSalvarNovoSubproduto"
+                                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm">Salvar
+                                SubProduto</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="flex justify-end items-center pt-4 border-t mt-5">
+                <button type="button" id="ProdutosScript_btnConcluirModalGerenciarSubprodutos"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm">Concluído</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script>
+        // Envolve todo o script em uma função auto-executável para evitar poluir o escopo global.
+        (function initProdutosScript() {
+            // IDs dos Elementos do DOM (Principais e Modais)
+            const ProdutosScript_ID_TABELA_PRODUTOS = 'ProdutosScript_tabelaProdutos';
+            const ProdutosScript_ID_MENSAGEM_FEEDBACK_GLOBAL = 'ProdutosScript_mensagemFeedbackGlobal';
+            const ProdutosScript_ID_CONTROLES_PAGINACAO = 'ProdutosScript_controlesPaginacao';
+            const ProdutosScript_ID_CAMPO_BUSCA = 'ProdutosScript_campoBusca';
+
+            // IDs do Painel de Ações Global
+            const ProdutosScript_ID_BTN_NOVO_PRODUTO_GLOBAL = 'ProdutosScript_btnNovoProdutoGlobal';
+            const ProdutosScript_ID_BTN_EDITAR_GLOBAL = 'ProdutosScript_btnEditarGlobal';
+            const ProdutosScript_ID_BTN_EXCLUIR_GLOBAL = 'ProdutosScript_btnExcluirGlobal';
+            const ProdutosScript_ID_BTN_SUBPRODUTOS_GLOBAL = 'ProdutosScript_btnSubprodutosGlobal';
+
+            // IDs do Modal Principal de Produto
+            const ProdutosScript_ID_MODAL_PRODUTO = 'ProdutosScript_modalProduto';
+            const ProdutosScript_ID_TITULO_MODAL_PRODUTO = 'ProdutosScript_tituloModal';
+            const ProdutosScript_ID_FORM_PRODUTO = 'ProdutosScript_formProduto';
+            const ProdutosScript_ID_DIV_ID_EXIBICAO_MODAL = 'ProdutosScript_divIdExibicaoModal';
+            const ProdutosScript_ID_CAMPO_ID_EXIBICAO_MODAL = 'ProdutosScript_campoIdExibicaoModal';
+            const ProdutosScript_ID_CAMPO_ID_FORM_MODAL = 'ProdutosScript_campoIdFormModal';
+            const ProdutosScript_ID_BTN_FECHAR_MODAL_PRODUTO = 'ProdutosScript_btnFecharModalProduto';
+            const ProdutosScript_ID_BTN_CANCELAR_MODAL_PRODUTO = 'ProdutosScript_btnCancelarModalProduto';
+            const ProdutosScript_ID_BTN_SALVAR_MODAL_PRODUTO = 'ProdutosScript_btnSalvarModalProduto';
+            const ProdutosScript_ID_MENSAGEM_ERRO_MODAL_PRODUTO = 'ProdutosScript_mensagemErroModalProduto';
+            const ProdutosScript_ID_INPUT_NOME_PRODUTO = 'ProdutosScript_inputNomeProduto';
+
+            // IDs do Modal de Confirmação de Exclusão de Produto
+            const ProdutosScript_ID_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO = 'ProdutosScript_modalConfirmarExclusaoProduto';
+            const ProdutosScript_ID_NOME_PRODUTO_EXCLUIR_MODAL = 'ProdutosScript_nomeProdutoParaExcluirModal';
+            const ProdutosScript_ID_MENSAGEM_SUBPRODUTOS_VINCULADOS_PRODUTO_MODAL = 'ProdutosScript_mensagemSubProdutosVinculadosProdutoModal';
+            const ProdutosScript_ID_OPCOES_EXCLUSAO_SUBPRODUTOS_PRODUTO = 'ProdutosScript_opcoesExclusaoSubProdutosProduto';
+            const ProdutosScript_ID_MENSAGEM_ERRO_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO = 'ProdutosScript_mensagemErroModalConfirmarExclusaoProduto';
+            const ProdutosScript_ID_BTN_FECHAR_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO = 'ProdutosScript_btnFecharModalConfirmarExclusaoProduto';
+            const ProdutosScript_ID_BTN_CANCELAR_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO = 'ProdutosScript_btnCancelarModalConfirmarExclusaoProduto';
+
+            // IDs do Modal de Realocação de Subprodutos
+            const ProdutosScript_ID_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO = 'ProdutosScript_modalRealocarSubProdutosProduto';
+            const ProdutosScript_ID_NOME_PRODUTO_REALOCAR_MODAL = 'ProdutosScript_nomeProdutoParaRealocarModal';
+            const ProdutosScript_ID_LISTA_SUBPRODUTOS_PRODUTO_PARA_REALOCAR = 'ProdutosScript_listaSubProdutosProdutoParaRealocar';
+            const ProdutosScript_ID_MENSAGEM_ERRO_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO = 'ProdutosScript_mensagemErroModalRealocarSubProdutosProduto';
+            const ProdutosScript_ID_BTN_FECHAR_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO = 'ProdutosScript_btnFecharModalRealocarSubProdutosProduto';
+            const ProdutosScript_ID_BTN_CANCELAR_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO = 'ProdutosScript_btnCancelarModalRealocarSubProdutosProduto';
+            const ProdutosScript_ID_BTN_CONFIRMAR_REALOCACAO_PRODUTO = 'ProdutosScript_btnConfirmarRealocacaoProduto';
+
+            // IDs do Modal de Gerenciar Subprodutos
+            const ProdutosScript_ID_MODAL_GERENCIAR_SUBPRODUTOS = 'ProdutosScript_modalGerenciarSubprodutos';
+            const ProdutosScript_ID_NOME_PRODUTO_PRINCIPAL_MODAL_SUBPRODUTOS = 'ProdutosScript_nomeProdutoPrincipalModalSubprodutos';
+            const ProdutosScript_ID_BTN_FECHAR_MODAL_GERENCIAR_SUBPRODUTOS = 'ProdutosScript_btnFecharModalGerenciarSubprodutos';
+            const ProdutosScript_ID_LISTA_SUBPRODUTOS_ATUAIS = 'ProdutosScript_listaSubprodutosAtuais';
+            const ProdutosScript_ID_BTN_TOGGLE_ADICIONAR_SUBPRODUTO = 'ProdutosScript_btnToggleAdicionarSubproduto';
+            const ProdutosScript_ID_ICONE_TOGGLE_ADICIONAR_SUBPRODUTO = 'ProdutosScript_iconeToggleAdicionarSubproduto';
+            const ProdutosScript_ID_FORM_ADICIONAR_SUBPRODUTO_CONTAINER = 'ProdutosScript_formAdicionarSubprodutoContainer';
+            const ProdutosScript_ID_FORM_ADICIONAR_SUBPRODUTO = 'ProdutosScript_formAdicionarSubproduto';
+            const ProdutosScript_ID_PRODUTO_PAI_NOME_FORM_SUBPRODUTO = 'ProdutosScript_produtoPaiNomeFormSubproduto';
+            const ProdutosScript_ID_SUBPRODUTO_ID_EDICAO_FORM_SUBPRODUTO = 'ProdutosScript_subProdutoIdEdicao';
+            const ProdutosScript_ID_TITULO_FORM_SUBPRODUTO = 'ProdutosScript_tituloFormSubproduto';
+            const ProdutosScript_ID_SELECT_FORNECEDOR_NOVO_SUBPRODUTO = 'ProdutosScript_selectFornecedorNovoSubproduto';
+            const ProdutosScript_ID_BTN_SALVAR_NOVO_SUBPRODUTO = 'ProdutosScript_btnSalvarNovoSubproduto';
+            const ProdutosScript_ID_BTN_CANCELAR_FORM_SUBPRODUTO = 'ProdutosScript_btnCancelarFormSubproduto';
+            const ProdutosScript_ID_MENSAGEM_ERRO_MODAL_ADICIONAR_SUBPRODUTO = 'ProdutosScript_mensagemErroModalAdicionarSubproduto';
+            const ProdutosScript_ID_BTN_CONCLUIR_MODAL_GERENCIAR_SUBPRODUTOS = 'ProdutosScript_btnConcluirModalGerenciarSubprodutos';
+
+            // Variáveis de estado
+            let ProdutosScript_paginaAtual = 1;
+            const PRODUTOS_SCRIPT_ITENS_POR_PAGINA = 10;
+            let ProdutosScript_termoBuscaAtual = "";
+            let ProdutosScript_debounceTimerBusca;
+            let ProdutosScript_cabecalhosParaExibicaoGlobal = [];
+            let ProdutosScript_modoModalProduto = 'criar';
+            let ProdutosScript_produtoParaExcluirTemp = { id: null, nome: null };
+            let ProdutosScript_produtoParaGerenciarSubprodutosTemp = { id: null, nome: null };
+            let ProdutosScript_modoFormSubproduto = 'criar';
+            let ProdutosScript_idSubprodutoEmEdicao = null;
+            let ProdutosScript_tomSelectInstance;
+
+            // Variáveis para controle de seleção na tabela
+            let ProdutosScript_produtoSelecionadoId = null;
+            let ProdutosScript_produtoSelecionadoNome = null;
+            let ProdutosScript_produtoSelecionadoObjeto = null;
+            let ProdutosScript_linhaSelecionadaAnterior = null;
+
+            /**
+             * Função central para fazer chamadas à API do Firebase Functions.
+             * @param {string} endpoint - O endpoint da API (ex: 'produtos/list').
+             * @param {string} method - O método HTTP (ex: 'GET', 'POST').
+             * @param {object|null} body - O corpo da requisição para métodos como POST.
+             * @returns {Promise<object>} - A resposta da API em JSON.
+             */
+            async function ProdutosScript_callApi(endpoint, method = 'POST', body = null) {
+                try {
+                    const options = {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                    };
+                    if (body) {
+                        options.body = JSON.stringify(body);
+                    }
+                    // O fetch agora aponta para a rota /api/ que o firebase.json redireciona
+                    const response = await fetch(`/api/${endpoint}`, options);
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                        throw new Error(errorData.message || 'Erro de comunicação com o servidor.');
+                    }
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        return await response.json();
+                    }
+                    return { success: true, message: "Operação bem-sucedida sem retorno de dados." };
+                } catch (error) {
+                    console.error(`Erro na chamada da API [${endpoint}]:`, error);
+                    // Retorna um objeto de erro padronizado para ser tratado pelas outras funções
+                    return { error: true, success: false, message: error.message };
+                }
+            }
+
+
+            // --- Funções Utilitárias de UI (sem alterações) ---
+            function ProdutosScript_exibirFeedbackGlobal(mensagem, isError = false, duracao = 7000) {
+                const feedbackDiv = document.getElementById(ProdutosScript_ID_MENSAGEM_FEEDBACK_GLOBAL);
+                if (feedbackDiv) {
+                    const innerDiv = document.createElement('div');
+                    innerDiv.className = `p-3 rounded-md text-sm ${isError ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-green-100 text-green-700 border border-green-300'}`;
+                    innerDiv.textContent = mensagem;
+                    feedbackDiv.innerHTML = '';
+                    feedbackDiv.appendChild(innerDiv);
+                    if (duracao > 0) setTimeout(() => { if (feedbackDiv.contains(innerDiv)) feedbackDiv.innerHTML = ''; }, duracao);
+                } else console.warn("Feedback global não encontrado:", ProdutosScript_ID_MENSAGEM_FEEDBACK_GLOBAL);
+            }
+
+            function ProdutosScript_exibirMensagemEmModal(modalMsgId, mensagem, isError = false) {
+                const mensagemDiv = document.getElementById(modalMsgId);
+                if (mensagemDiv) {
+                    mensagemDiv.textContent = mensagem;
+                    mensagemDiv.className = `text-sm my-3 min-h-[20px] ${isError ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}`;
+                } else console.warn("Elemento de mensagem do modal não encontrado:", modalMsgId);
+            }
+
+            function ProdutosScript_mostrarLoadingBotao(botao, textoLoading = "Processando...") {
+                if (!botao) return;
+                if (!botao.dataset.originalContent) {
+                    botao.dataset.originalContent = botao.innerHTML;
+                }
+                botao.disabled = true;
+                botao.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>${textoLoading}`;
+            }
+
+            function ProdutosScript_restaurarBotao(botao) {
+                if (!botao) return;
+                if (botao.dataset.originalContent) {
+                    botao.innerHTML = botao.dataset.originalContent;
+                    delete botao.dataset.originalContent;
+                }
+                botao.disabled = false;
+            }
+
+            // --- Funções do Painel de Ações Global (sem alterações) ---
+            function ProdutosScript_atualizarEstadoBotoesPainelAcoes() {
+                const btnEditar = document.getElementById(ProdutosScript_ID_BTN_EDITAR_GLOBAL);
+                const btnExcluir = document.getElementById(ProdutosScript_ID_BTN_EXCLUIR_GLOBAL);
+                const btnSubprodutos = document.getElementById(ProdutosScript_ID_BTN_SUBPRODUTOS_GLOBAL);
+                const habilitar = ProdutosScript_produtoSelecionadoId !== null;
+                if (btnEditar) btnEditar.disabled = !habilitar;
+                if (btnExcluir) btnExcluir.disabled = !habilitar;
+                if (btnSubprodutos) btnSubprodutos.disabled = !habilitar;
+            }
+
+            // --- Funções do Modal Principal de Produto (lógica de UI sem alterações) ---
+            function ProdutosScript_fecharModalProduto() {
+                document.getElementById(ProdutosScript_ID_MODAL_PRODUTO).classList.add('hidden');
+                document.getElementById(ProdutosScript_ID_FORM_PRODUTO).reset();
+                ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_PRODUTO, '', false);
+                const btnSalvar = document.getElementById(ProdutosScript_ID_BTN_SALVAR_MODAL_PRODUTO);
+                if (btnSalvar) ProdutosScript_restaurarBotao(btnSalvar);
+            }
+
+            function ProdutosScript_abrirModalParaCriarProduto() {
+                ProdutosScript_modoModalProduto = 'criar';
+                document.getElementById(ProdutosScript_ID_TITULO_MODAL_PRODUTO).textContent = 'Novo Produto';
+                document.getElementById(ProdutosScript_ID_DIV_ID_EXIBICAO_MODAL).classList.add('hidden');
+                document.getElementById(ProdutosScript_ID_FORM_PRODUTO).reset();
+                document.getElementById(ProdutosScript_ID_CAMPO_ID_FORM_MODAL).value = '';
+                const btnSalvar = document.getElementById(ProdutosScript_ID_BTN_SALVAR_MODAL_PRODUTO);
+                if (btnSalvar) {
+                    btnSalvar.innerHTML = 'Criar Produto';
+                    delete btnSalvar.dataset.originalContent;
+                    btnSalvar.disabled = false;
+                }
+                ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_PRODUTO, '', false);
+                document.getElementById(ProdutosScript_ID_MODAL_PRODUTO).classList.remove('hidden');
+                document.getElementById(ProdutosScript_ID_INPUT_NOME_PRODUTO).focus();
+            }
+
+            function ProdutosScript_abrirModalParaEditarProduto(produtoObj) {
+                ProdutosScript_modoModalProduto = 'editar';
+                const form = document.getElementById(ProdutosScript_ID_FORM_PRODUTO);
+                form.reset();
+
+                if (!produtoObj) {
+                    ProdutosScript_exibirFeedbackGlobal("Erro: Dados do produto não encontrados para edição.", true);
+                    return;
+                }
+
+                document.getElementById(ProdutosScript_ID_TITULO_MODAL_PRODUTO).textContent = 'Editar Produto';
+                document.getElementById(ProdutosScript_ID_DIV_ID_EXIBICAO_MODAL).classList.remove('hidden');
+                document.getElementById(ProdutosScript_ID_CAMPO_ID_EXIBICAO_MODAL).value = produtoObj.ID;
+                document.getElementById(ProdutosScript_ID_CAMPO_ID_FORM_MODAL).value = produtoObj.ID;
+
+                for (const key in produtoObj) {
+                    if (form.elements[key]) {
+                        form.elements[key].value = produtoObj[key] !== null && produtoObj[key] !== undefined ? String(produtoObj[key]) : "";
+                    }
+                }
+
+                const btnSalvar = document.getElementById(ProdutosScript_ID_BTN_SALVAR_MODAL_PRODUTO);
+                if (btnSalvar) {
+                    btnSalvar.innerHTML = 'Salvar Alterações';
+                    delete btnSalvar.dataset.originalContent;
+                    btnSalvar.disabled = false;
+                }
+                ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_PRODUTO, '', false);
+                document.getElementById(ProdutosScript_ID_MODAL_PRODUTO).classList.remove('hidden');
+                document.getElementById(ProdutosScript_ID_INPUT_NOME_PRODUTO).focus();
+            }
+
+            // --- Funções dos Modais de Exclusão (lógica de UI sem alterações) ---
+            function ProdutosScript_fecharModalConfirmarExclusaoProduto() {
+                document.getElementById(ProdutosScript_ID_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO).classList.add('hidden');
+                document.getElementById(ProdutosScript_ID_OPCOES_EXCLUSAO_SUBPRODUTOS_PRODUTO).innerHTML = '';
+            }
+
+            function ProdutosScript_fecharModalRealocarSubProdutosProduto() {
+                document.getElementById(ProdutosScript_ID_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO).classList.add('hidden');
+                document.getElementById(ProdutosScript_ID_LISTA_SUBPRODUTOS_PRODUTO_PARA_REALOCAR).innerHTML = '<p class="text-center text-gray-500 py-4">Carregando...</p>';
+            }
+
+            // --- Funções do Modal de Gerenciar Subprodutos (lógica de UI sem alterações) ---
+            function ProdutosScript_fecharModalGerenciarSubprodutos() {
+                document.getElementById(ProdutosScript_ID_MODAL_GERENCIAR_SUBPRODUTOS).classList.add('hidden');
+                // Limpeza e reset do estado do modal
+                if (ProdutosScript_tomSelectInstance) {
+                    ProdutosScript_tomSelectInstance.destroy();
+                    ProdutosScript_tomSelectInstance = null;
+                }
+            }
+
+            function ProdutosScript_toggleAdicionarSubprodutoForm() {
+                const container = document.getElementById(ProdutosScript_ID_FORM_ADICIONAR_SUBPRODUTO_CONTAINER);
+                const icone = document.getElementById(ProdutosScript_ID_ICONE_TOGGLE_ADICIONAR_SUBPRODUTO);
+                if (container && icone) {
+                    container.classList.toggle('hidden');
+                    icone.classList.toggle('rotate-180');
+                    if (!container.classList.contains('hidden')) {
+                        ProdutosScript_resetarFormSubproduto(); // Limpa o formulário sempre que abre
+                        container.querySelector('input[name="SubProduto"]').focus();
+                    }
+                }
+            }
+
+            function ProdutosScript_resetarFormSubproduto() {
+                const form = document.getElementById(ProdutosScript_ID_FORM_ADICIONAR_SUBPRODUTO);
+                if (form) form.reset();
+                ProdutosScript_modoFormSubproduto = 'criar';
+                ProdutosScript_idSubprodutoEmEdicao = null;
+                document.getElementById(ProdutosScript_ID_SUBPRODUTO_ID_EDICAO_FORM_SUBPRODUTO).value = "";
+                document.getElementById(ProdutosScript_ID_TITULO_FORM_SUBPRODUTO).textContent = 'Novo SubProduto Vinculado';
+                const btnSalvar = document.getElementById(ProdutosScript_ID_BTN_SALVAR_NOVO_SUBPRODUTO);
+                if (btnSalvar) {
+                    btnSalvar.innerHTML = 'Salvar SubProduto';
+                    delete btnSalvar.dataset.originalContent;
+                    btnSalvar.disabled = false;
+                }
+                const produtoPaiInput = document.getElementById(ProdutosScript_ID_PRODUTO_PAI_NOME_FORM_SUBPRODUTO);
+                if (produtoPaiInput && ProdutosScript_produtoParaGerenciarSubprodutosTemp.nome) {
+                    produtoPaiInput.value = ProdutosScript_produtoParaGerenciarSubprodutosTemp.nome;
+                }
+                ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_ADICIONAR_SUBPRODUTO, '', false);
+            }
+
+            // --- Funções de Lógica e Comunicação com API (REFATORADAS) ---
+
+            /**
+             * Carrega e renderiza a lista de produtos da API.
+             * Substitui a chamada a `ProdutosController_obterListaProdutosPaginada` via `google.script.run`.
+             */
+            async function ProdutosScript_carregarListaProdutos(pagina = 1, termoBusca = "") {
+                console.log(`Carregando produtos: Pág ${pagina}, Busca: "${termoBusca}"`);
+                ProdutosScript_paginaAtual = pagina;
+                ProdutosScript_termoBuscaAtual = termoBusca;
+
+                // Exibe o estado de carregamento na UI
+                const tabelaProdutosEl = document.getElementById(ProdutosScript_ID_TABELA_PRODUTOS);
+                if (tabelaProdutosEl) {
+                    const tbody = tabelaProdutosEl.querySelector('tbody');
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-gray-500"><svg class="animate-spin h-6 w-6 text-blue-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></td></tr>`;
+                }
+
+                const resultadoServidor = await ProdutosScript_callApi('produtos/list', 'POST', {
+                    pagina: ProdutosScript_paginaAtual,
+                    itensPorPagina: PRODUTOS_SCRIPT_ITENS_POR_PAGINA,
+                    termoBusca: ProdutosScript_termoBuscaAtual
+                });
+
+                ProdutosScript_processarDadosServidor(resultadoServidor);
+            }
+
+            /**
+             * Submete o formulário de criar/editar produto para a API.
+             * Substitui `ProdutosCRUD_criarNovoProduto` e `ProdutosCRUD_atualizarProduto`.
+             */
+            async function ProdutosScript_submeterFormularioProduto(event) {
+                event.preventDefault();
+                const btnSalvar = document.getElementById(ProdutosScript_ID_BTN_SALVAR_MODAL_PRODUTO);
+                ProdutosScript_mostrarLoadingBotao(btnSalvar, ProdutosScript_modoModalProduto === 'criar' ? "Criando..." : "Salvando...");
+
+                const form = document.getElementById(ProdutosScript_ID_FORM_PRODUTO);
+                const formData = new FormData(form);
+                const dadosProduto = Object.fromEntries(formData.entries());
+
+                try {
+                    const endpoint = ProdutosScript_modoModalProduto === 'criar' ? 'produtos/create' : 'produtos/update';
+                    const response = await ProdutosScript_callApi(endpoint, 'POST', dadosProduto);
+
+                    if (response.error || !response.success) {
+                        throw new Error(response.message || "Ocorreu um erro desconhecido.");
+                    }
+
+                    ProdutosScript_fecharModalProduto();
+                    ProdutosScript_exibirFeedbackGlobal(response.message || "Operação concluída com sucesso!", false);
+                    await ProdutosScript_carregarListaProdutos(ProdutosScript_modoModalProduto === 'criar' ? 1 : ProdutosScript_paginaAtual, "");
+                } catch (error) {
+                    ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_PRODUTO, error.message, true);
+                } finally {
+                    ProdutosScript_restaurarBotao(btnSalvar);
+                }
+            }
+
+            /**
+             * Inicia o processo de exclusão, buscando primeiro os subprodutos vinculados.
+             * Substitui a chamada inicial de `ProdutosCRUD_obterSubProdutosPorProduto`.
+             */
+            async function ProdutosScript_iniciarConfirmacaoExclusaoProduto() {
+                if (!ProdutosScript_produtoSelecionadoId || !ProdutosScript_produtoSelecionadoNome) {
+                    ProdutosScript_exibirFeedbackGlobal("Nenhum produto selecionado para excluir.", true);
+                    return;
+                }
+                ProdutosScript_produtoParaExcluirTemp = { id: ProdutosScript_produtoSelecionadoId, nome: ProdutosScript_produtoSelecionadoNome };
+                ProdutosScript_exibirFeedbackGlobal("Verificando subprodutos vinculados...", false, 0);
+
+                const subProdutosVinculados = await ProdutosScript_callApi('produtos/getSubprodutos', 'POST', { nomeProduto: ProdutosScript_produtoParaExcluirTemp.nome });
+
+                ProdutosScript_exibirFeedbackGlobal("", false, 1);
+                if (subProdutosVinculados.error) {
+                    ProdutosScript_exibirFeedbackGlobal("Erro ao verificar subprodutos: " + subProdutosVinculados.message, true);
+                    return;
+                }
+                ProdutosScript_abrirModalOpcoesExclusaoProduto(subProdutosVinculados);
+            }
+
+            /**
+             * Abre o modal com as opções de exclusão (lógica da UI, sem grandes mudanças).
+             */
+            function ProdutosScript_abrirModalOpcoesExclusaoProduto(subProdutosVinculados) {
+                // (Esta função é principalmente UI e permanece quase a mesma, apenas ajustada para clareza)
+                const { nome } = ProdutosScript_produtoParaExcluirTemp;
+                const modal = document.getElementById(ProdutosScript_ID_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO);
+                document.getElementById(ProdutosScript_ID_NOME_PRODUTO_EXCLUIR_MODAL).textContent = nome;
+                const divOpcoes = document.getElementById(ProdutosScript_ID_OPCOES_EXCLUSAO_SUBPRODUTOS_PRODUTO);
+                const msgSubProdutos = document.getElementById(ProdutosScript_ID_MENSAGEM_SUBPRODUTOS_VINCULADOS_PRODUTO_MODAL);
+                const containerBotoesRodape = modal.querySelector(".flex.justify-end");
+                const cancelarBtn = document.getElementById(ProdutosScript_ID_BTN_CANCELAR_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO);
+
+                const btnConfirmarExistente = containerBotoesRodape.querySelector('#ProdutosScript_btnConfirmaExcluirSimplesProduto');
+                if (btnConfirmarExistente) containerBotoesRodape.removeChild(btnConfirmarExistente);
+                divOpcoes.innerHTML = '';
+
+                if (subProdutosVinculados && subProdutosVinculados.length > 0) {
+                    msgSubProdutos.innerHTML = `Este produto possui <strong>${subProdutosVinculados.length} subproduto(s)</strong> vinculado(s). O que deseja fazer?`;
+                    const btnExcluirTudo = document.createElement('button');
+                    btnExcluirTudo.className = 'w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm text-sm';
+                    btnExcluirTudo.textContent = 'Excluir Produto e Subprodutos Vinculados';
+                    btnExcluirTudo.onclick = () => ProdutosScript_executarExclusaoProduto(true, null, btnExcluirTudo);
+                    divOpcoes.appendChild(btnExcluirTudo);
+
+                    const btnRealocar = document.createElement('button');
+                    btnRealocar.className = 'w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm text-sm mt-2';
+                    btnRealocar.textContent = 'Excluir Produto e REALOCAR Subprodutos';
+                    btnRealocar.onclick = () => ProdutosScript_prepararModalRealocacaoSubProdutosProduto(subProdutosVinculados);
+                    divOpcoes.appendChild(btnRealocar);
+                } else {
+                    msgSubProdutos.textContent = 'Este produto não possui subprodutos vinculados. Deseja realmente excluí-lo?';
+                    const btnConfirmarSimples = document.createElement('button');
+                    btnConfirmarSimples.id = 'ProdutosScript_btnConfirmaExcluirSimplesProduto';
+                    btnConfirmarSimples.className = 'bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm';
+                    btnConfirmarSimples.textContent = 'Sim, Excluir Produto';
+                    btnConfirmarSimples.onclick = () => ProdutosScript_executarExclusaoProduto(true, null, btnConfirmarSimples);
+                    containerBotoesRodape.insertBefore(btnConfirmarSimples, cancelarBtn);
+                }
+                modal.classList.remove('hidden');
+            }
+
+            /**
+             * Prepara e abre o modal de realocação.
+             * Substitui a chamada a `ProdutosCRUD_obterListaOutrosProdutos`.
+             */
+            async function ProdutosScript_prepararModalRealocacaoSubProdutosProduto(subProdutosDoProduto) {
+                const { id, nome } = ProdutosScript_produtoParaExcluirTemp;
+                ProdutosScript_fecharModalConfirmarExclusaoProduto();
+                document.getElementById(ProdutosScript_ID_NOME_PRODUTO_REALOCAR_MODAL).textContent = nome;
+                document.getElementById(ProdutosScript_ID_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO).classList.remove('hidden');
+
+                const outrosProdutos = await ProdutosScript_callApi('produtos/getOthers', 'POST', { idProdutoExcluido: id });
+
+                const listaDiv = document.getElementById(ProdutosScript_ID_LISTA_SUBPRODUTOS_PRODUTO_PARA_REALOCAR);
+                const btnConfirmar = document.getElementById(ProdutosScript_ID_BTN_CONFIRMAR_REALOCACAO_PRODUTO);
+
+                if (outrosProdutos.error || !outrosProdutos || outrosProdutos.length === 0) {
+                    listaDiv.innerHTML = '<p class="text-center text-red-500 py-4">Não há outros produtos para realocar.</p>';
+                    if (btnConfirmar) btnConfirmar.disabled = true;
+                    return;
+                }
+                if (btnConfirmar) btnConfirmar.disabled = false;
+                ProdutosScript_popularModalRealocacaoSubProdutosProduto(subProdutosDoProduto, outrosProdutos);
+            }
+
+            /**
+             * Popula o modal de realocação com os dados (lógica de UI, sem grandes mudanças).
+             */
+            function ProdutosScript_popularModalRealocacaoSubProdutosProduto(subProdutos, outrosProdutos) {
+                const listaDiv = document.getElementById(ProdutosScript_ID_LISTA_SUBPRODUTOS_PRODUTO_PARA_REALOCAR);
+                listaDiv.innerHTML = '';
+                subProdutos.forEach(sub => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'p-3 border rounded-md bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2';
+                    itemDiv.innerHTML = `
+                    <span class="text-sm text-gray-800 font-medium">${sub.SubProduto} (ID: ${sub.ID_SubProduto})</span>
+                    <select class="p-2 border border-gray-300 rounded-md shadow-sm text-sm w-full sm:w-auto" data-sub-produto-id="${sub.ID_SubProduto}">
+                        <option value="">Selecione novo produto...</option>
+                        ${outrosProdutos.map(p => `<option value="${p.nome}">${p.nome} (ID: ${p.id})</option>`).join('')}
+                    </select>
+                `;
+                    listaDiv.appendChild(itemDiv);
+                });
+            }
+
+            /**
+             * Confirma a realocação e chama a função de exclusão.
+             */
+            function ProdutosScript_confirmarRealocacaoEExcluirProduto() {
+                const selects = document.querySelectorAll(`#${ProdutosScript_ID_LISTA_SUBPRODUTOS_PRODUTO_PARA_REALOCAR} select`);
+                const realocacoes = [];
+                let todasSelecoesFeitas = true;
+                selects.forEach(select => {
+                    if (select.value) {
+                        realocacoes.push({ subProdutoId: select.dataset.subProdutoId, novoProdutoVinculadoNome: select.value });
+                    } else {
+                        todasSelecoesFeitas = false;
+                    }
+                });
+
+                if (!todasSelecoesFeitas) {
+                    ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO, "Selecione um novo produto para todos os subprodutos.", true);
+                    return;
+                }
+                const btnConfirmar = document.getElementById(ProdutosScript_ID_BTN_CONFIRMAR_REALOCACAO_PRODUTO);
+                ProdutosScript_executarExclusaoProduto(false, realocacoes, btnConfirmar);
+            }
+
+            /**
+             * Executa a exclusão via API.
+             * Substitui `ProdutosCRUD_processarExclusaoProduto`.
+             */
+            async function ProdutosScript_executarExclusaoProduto(deletarSubprodutos, realocacoesArray, botaoAcionado) {
+                const { id, nome } = ProdutosScript_produtoParaExcluirTemp;
+                const modalRealocar = document.getElementById(ProdutosScript_ID_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO);
+                const originatingModalMsgId = !modalRealocar.classList.contains('hidden') ? ProdutosScript_ID_MENSAGEM_ERRO_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO : ProdutosScript_ID_MENSAGEM_ERRO_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO;
+
+                ProdutosScript_mostrarLoadingBotao(botaoAcionado, "Excluindo...");
+                try {
+                    const response = await ProdutosScript_callApi('produtos/delete', 'POST', {
+                        idProduto: id,
+                        nomeProdutoOriginal: nome,
+                        deletarSubprodutosVinculados: deletarSubprodutos,
+                        realocacoesSubprodutos: realocacoesArray
+                    });
+
+                    if (response.error || !response.success) throw new Error(response.message);
+
+                    ProdutosScript_fecharModalConfirmarExclusaoProduto();
+                    ProdutosScript_fecharModalRealocarSubProdutosProduto();
+                    ProdutosScript_exibirFeedbackGlobal(response.message, false);
+                    await ProdutosScript_carregarListaProdutos(1, "");
+                } catch (error) {
+                    ProdutosScript_exibirMensagemEmModal(originatingModalMsgId, `Erro: ${error.message}`, true);
+                } finally {
+                    ProdutosScript_restaurarBotao(botaoAcionado);
+                }
+            }
+
+            /**
+             * Salva (cria ou atualiza) um subproduto vinculado via API.
+             */
+            async function ProdutosScript_salvarNovoSubprodutoVinculadoHandler(event) {
+                event.preventDefault();
+                const btnSalvar = document.getElementById(ProdutosScript_ID_BTN_SALVAR_NOVO_SUBPRODUTO);
+                ProdutosScript_mostrarLoadingBotao(btnSalvar, "Salvando...");
+
+                const form = document.getElementById(ProdutosScript_ID_FORM_ADICIONAR_SUBPRODUTO);
+                const dadosSubProduto = Object.fromEntries(new FormData(form).entries());
+
+                try {
+                    const endpoint = ProdutosScript_modoFormSubproduto === 'criar' ? 'subprodutos/createLinked' : 'subprodutos/updateLinked';
+                    const response = await ProdutosScript_callApi(endpoint, 'POST', dadosSubProduto);
+
+                    if (response.error || !response.success) throw new Error(response.message);
+
+                    ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_ADICIONAR_SUBPRODUTO, response.message, false);
+                    await ProdutosScript_carregarSubprodutosDoProduto(ProdutosScript_produtoParaGerenciarSubprodutosTemp.nome);
+                    ProdutosScript_resetarFormSubproduto();
+                    setTimeout(() => ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_ADICIONAR_SUBPRODUTO, '', false), 4000);
+
+                } catch (error) {
+                    ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_ADICIONAR_SUBPRODUTO, error.message, true);
+                } finally {
+                    ProdutosScript_restaurarBotao(btnSalvar);
+                }
+            }
+
+            /**
+             * Carrega subprodutos para o modal de gerenciamento.
+             */
+            async function ProdutosScript_carregarSubprodutosDoProduto(nomeProduto) {
+                const listaSubprodutosAtuaisEl = document.getElementById(ProdutosScript_ID_LISTA_SUBPRODUTOS_ATUAIS);
+                listaSubprodutosAtuaisEl.innerHTML = '<p class="text-gray-500 text-sm">Carregando...</p>';
+                const subProdutos = await ProdutosScript_callApi('produtos/getSubprodutos', 'POST', { nomeProduto });
+                if (subProdutos.error) {
+                    listaSubprodutosAtuaisEl.innerHTML = `<p class="text-red-500 text-sm">Erro ao carregar: ${subProdutos.message}</p>`;
+                    return [];
+                }
+                ProdutosScript_renderizarListaSubprodutosAtuais(subProdutos);
+                return subProdutos;
+            }
+
+            /**
+             * Exclui um subproduto simples.
+             */
+            async function ProdutosScript_confirmarExcluirSubproduto(subProdutoId, subProdutoNome) {
+                if (window.confirm(`Tem certeza que deseja excluir o subproduto "${subProdutoNome}"?`)) {
+                    ProdutosScript_exibirFeedbackGlobal('Excluindo subproduto...', false, 0);
+                    const response = await ProdutosScript_callApi('subprodutos/deleteSimple', 'POST', { subProdutoId });
+                    if (response.error || !response.success) {
+                        ProdutosScript_exibirFeedbackGlobal(response.message || 'Falha ao excluir.', true);
+                    } else {
+                        ProdutosScript_exibirFeedbackGlobal(response.message, false);
+                        await ProdutosScript_carregarSubprodutosDoProduto(ProdutosScript_produtoParaGerenciarSubprodutosTemp.nome);
+                    }
+                }
+            }
+
+            /**
+             * Prepara e abre o modal de gerenciamento de subprodutos.
+             */
+            async function ProdutosScript_abrirModalGerenciarSubprodutos() {
+                if (!ProdutosScript_produtoSelecionadoId) return;
+                ProdutosScript_produtoParaGerenciarSubprodutosTemp = { id: ProdutosScript_produtoSelecionadoId, nome: ProdutosScript_produtoSelecionadoNome };
+
+                document.getElementById(ProdutosScript_ID_NOME_PRODUTO_PRINCIPAL_MODAL_SUBPRODUTOS).textContent = ProdutosScript_produtoSelecionadoNome;
+                document.getElementById(ProdutosScript_ID_PRODUTO_PAI_NOME_FORM_SUBPRODUTO).value = ProdutosScript_produtoSelecionadoNome;
+
+                const modal = document.getElementById(ProdutosScript_ID_MODAL_GERENCIAR_SUBPRODUTOS);
+                modal.classList.remove('hidden');
+
+                // Inicializa o TomSelect para fornecedores
+                if (ProdutosScript_tomSelectInstance) ProdutosScript_tomSelectInstance.destroy();
+                const selectFornecedorEl = document.getElementById(ProdutosScript_ID_SELECT_FORNECEDOR_NOVO_SUBPRODUTO);
+                selectFornecedorEl.innerHTML = '<option value="">Carregando...</option>';
+                ProdutosScript_tomSelectInstance = new TomSelect(selectFornecedorEl, { create: false, placeholder: 'Selecione um fornecedor' });
+
+                // Carrega dados em paralelo
+                const subProdutosPromise = ProdutosScript_carregarSubprodutosDoProduto(ProdutosScript_produtoSelecionadoNome);
+                const fornecedoresPromise = ProdutosScript_callApi('produtos/getAllFornecedores', 'GET');
+
+                const fornecedores = await fornecedoresPromise;
+                if (fornecedores && !fornecedores.error) {
+                    ProdutosScript_tomSelectInstance.clearOptions();
+                    ProdutosScript_tomSelectInstance.addOptions(fornecedores.map(f => ({ value: f.nome, text: `${f.nome} (ID: ${f.id})` })));
+                }
+            }
+
+            /**
+             * Carrega os dados de um subproduto para edição no formulário.
+             */
+            async function ProdutosScript_carregarSubProdutoParaEdicao(subProdutoId) {
+                ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_ADICIONAR_SUBPRODUTO, 'Carregando dados para edição...', false);
+                const subProdutoData = await ProdutosScript_callApi('subprodutos/details', 'POST', { subProdutoId });
+
+                if (subProdutoData.error) {
+                    ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_ADICIONAR_SUBPRODUTO, subProdutoData.message, true);
+                    return;
+                }
+
+                ProdutosScript_modoFormSubproduto = 'editar';
+                ProdutosScript_idSubprodutoEmEdicao = subProdutoId;
+
+                const form = document.getElementById(ProdutosScript_ID_FORM_ADICIONAR_SUBPRODUTO);
+                form.reset();
+
+                document.getElementById(ProdutosScript_ID_TITULO_FORM_SUBPRODUTO).textContent = 'Editar Subproduto';
+                document.getElementById(ProdutosScript_ID_BTN_SALVAR_NOVO_SUBPRODUTO).innerHTML = 'Atualizar Subproduto';
+
+                for (const key in subProdutoData) {
+                    if (form.elements[key]) form.elements[key].value = subProdutoData[key];
+                }
+                if (ProdutosScript_tomSelectInstance) {
+                    ProdutosScript_tomSelectInstance.setValue(subProdutoData.Fornecedor);
+                }
+                document.getElementById(ProdutosScript_ID_SUBPRODUTO_ID_EDICAO_FORM_SUBPRODUTO).value = subProdutoId;
+
+                const containerForm = document.getElementById(ProdutosScript_ID_FORM_ADICIONAR_SUBPRODUTO_CONTAINER);
+                if (containerForm.classList.contains('hidden')) {
+                    ProdutosScript_toggleAdicionarSubprodutoForm();
+                }
+                ProdutosScript_exibirMensagemEmModal(ProdutosScript_ID_MENSAGEM_ERRO_MODAL_ADICIONAR_SUBPRODUTO, '', false);
+            }
+
+            /**
+             * Processa os dados recebidos da API e renderiza a tabela e a paginação.
+             */
+            function ProdutosScript_processarDadosServidor(resultadoServidor) {
+                const tabelaProdutosEl = document.getElementById(ProdutosScript_ID_TABELA_PRODUTOS);
+                const thead = tabelaProdutosEl.querySelector('thead');
+                const tbody = tabelaProdutosEl.querySelector('tbody');
+                thead.innerHTML = '';
+                tbody.innerHTML = '';
+
+                if (!resultadoServidor || resultadoServidor.error) {
+                    const errorMsg = resultadoServidor?.message || "Falha ao carregar dados.";
+                    ProdutosScript_exibirFeedbackGlobal(errorMsg, true);
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-red-500">${errorMsg}</td></tr>`;
+                    return;
+                }
+
+                ProdutosScript_cabecalhosParaExibicaoGlobal = resultadoServidor.cabecalhosParaExibicao || [];
+                const produtosDaPagina = resultadoServidor.produtosPaginados || [];
+
+                const cabecalhoRow = thead.insertRow();
+                ProdutosScript_cabecalhosParaExibicaoGlobal.forEach(texto => {
+                    const th = document.createElement('th');
+                    th.className = 'px-4 py-3 text-left text-xs font-semibold tracking-wider';
+                    th.textContent = texto;
+                    cabecalhoRow.appendChild(th);
+                });
+
+                if (produtosDaPagina.length > 0) {
+                    produtosDaPagina.forEach(produtoObj => {
+                        const tr = tbody.insertRow();
+                        tr.addEventListener('click', function () {
+                            if (ProdutosScript_linhaSelecionadaAnterior) ProdutosScript_linhaSelecionadaAnterior.classList.remove('linha-selecionada');
+                            if (ProdutosScript_produtoSelecionadoId === produtoObj.ID) {
+                                ProdutosScript_produtoSelecionadoId = null;
+                                ProdutosScript_produtoSelecionadoNome = null;
+                                ProdutosScript_produtoSelecionadoObjeto = null;
+                                ProdutosScript_linhaSelecionadaAnterior = null;
+                            } else {
+                                this.classList.add('linha-selecionada');
+                                ProdutosScript_produtoSelecionadoId = produtoObj.ID;
+                                ProdutosScript_produtoSelecionadoNome = produtoObj.Produto;
+                                ProdutosScript_produtoSelecionadoObjeto = produtoObj;
+                                ProdutosScript_linhaSelecionadaAnterior = this;
+                            }
+                            ProdutosScript_atualizarEstadoBotoesPainelAcoes();
+                        });
+                        ProdutosScript_cabecalhosParaExibicaoGlobal.forEach(nomeCabecalho => {
+                            const td = tr.insertCell();
+                            td.className = 'px-4 py-3 text-sm text-gray-700 border-b border-gray-200';
+                            td.textContent = produtoObj[nomeCabecalho] || '';
+                            tr.appendChild(td);
+                        });
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="${ProdutosScript_cabecalhosParaExibicaoGlobal.length}" class="text-center p-8 text-gray-500">${ProdutosScript_termoBuscaAtual ? `Nenhum resultado para "${ProdutosScript_termoBuscaAtual}"` : 'Nenhum produto cadastrado.'}</td></tr>`;
+                }
+
+                ProdutosScript_renderizarControlesPaginacao(resultadoServidor.totalItens, resultadoServidor.paginaAtual, resultadoServidor.totalPaginas);
+                ProdutosScript_produtoSelecionadoId = null;
+                ProdutosScript_atualizarEstadoBotoesPainelAcoes();
+            }
+
+            function ProdutosScript_renderizarListaSubprodutosAtuais(subProdutos) {
+                const listaDiv = document.getElementById(ProdutosScript_ID_LISTA_SUBPRODUTOS_ATUAIS);
+                listaDiv.innerHTML = '';
+                if (!subProdutos || subProdutos.length === 0) {
+                    listaDiv.innerHTML = '<p class="text-gray-500 text-sm p-4 text-center">Nenhum subproduto vinculado.</p>';
+                    return;
+                }
+                const ul = document.createElement('ul');
+                ul.className = 'space-y-2';
+                subProdutos.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center p-2 border rounded-md bg-white hover:bg-gray-50 text-sm';
+                    li.innerHTML = `
+                    <span>${item.SubProduto} (ID: ${item.ID_SubProduto})</span>
+                    <div class="space-x-2">
+                        <button class="text-blue-600 hover:text-blue-800" onclick="ProdutosScript_prepararEdicaoSubproduto('${item.ID_SubProduto}')">Editar</button>
+                        <button class="text-red-500 hover:text-red-700" onclick="ProdutosScript_excluirSubproduto('${item.ID_SubProduto}', '${item.SubProduto}')">Excluir</button>
+                    </div>`;
+                    ul.appendChild(li);
+                });
+                listaDiv.appendChild(ul);
+            }
+
+            function ProdutosScript_renderizarControlesPaginacao(totalItens, paginaAtual, totalPaginas) {
+                const controlesDiv = document.getElementById(ProdutosScript_ID_CONTROLES_PAGINACAO);
+                controlesDiv.innerHTML = '';
+                if (totalItens === 0) return;
+                const inicio = (paginaAtual - 1) * PRODUTOS_SCRIPT_ITENS_POR_PAGINA + 1;
+                const fim = Math.min(paginaAtual * PRODUTOS_SCRIPT_ITENS_POR_PAGINA, totalItens);
+
+                controlesDiv.innerHTML = `
+                <div class="text-sm text-gray-700">
+                    Mostrando <span class="font-medium">${inicio}</span> a <span class="font-medium">${fim}</span> de <span class="font-medium">${totalItens}</span> resultados
+                </div>
+                <div class="inline-flex items-center gap-x-2">
+                    <button id="btnAnterior" class="btn-paginacao" ${paginaAtual <= 1 ? 'disabled' : ''}>Anterior</button>
+                    <span class="text-sm px-2">Pág ${paginaAtual} de ${totalPaginas}</span>
+                    <button id="btnProximo" class="btn-paginacao" ${paginaAtual >= totalPaginas ? 'disabled' : ''}>Próximo</button>
+                </div>
+            `;
+                document.getElementById('btnAnterior').onclick = () => ProdutosScript_carregarListaProdutos(paginaAtual - 1, ProdutosScript_termoBuscaAtual);
+                document.getElementById('btnProximo').onclick = () => ProdutosScript_carregarListaProdutos(paginaAtual + 1, ProdutosScript_termoBuscaAtual);
+            }
+
+
+            // --- ANEXAR LISTENERS ---
+            function ProdutosScript_anexarListenersGlobais() {
+                const anexar = (id, evento, callback) => {
+                    const el = document.getElementById(id);
+                    // Remove listener antigo se houver para evitar duplicatas
+                    if (el && el.dataset.listenerAttached) {
+                        el.removeEventListener(evento, el.eventListener);
+                    }
+                    if (el) {
+                        el.addEventListener(evento, callback);
+                        el.eventListener = callback; // Guarda referência para remover depois se necessário
+                        el.dataset.listenerAttached = 'true';
+                    }
+                };
+
+                // Painel Global
+                anexar(ProdutosScript_ID_BTN_NOVO_PRODUTO_GLOBAL, 'click', ProdutosScript_abrirModalParaCriarProduto);
+                anexar(ProdutosScript_ID_BTN_EDITAR_GLOBAL, 'click', () => {
+                    if (ProdutosScript_produtoSelecionadoObjeto) ProdutosScript_abrirModalParaEditarProduto(ProdutosScript_produtoSelecionadoObjeto);
+                });
+                anexar(ProdutosScript_ID_BTN_EXCLUIR_GLOBAL, 'click', ProdutosScript_iniciarConfirmacaoExclusaoProduto);
+                anexar(ProdutosScript_ID_BTN_SUBPRODUTOS_GLOBAL, 'click', ProdutosScript_abrirModalGerenciarSubprodutos);
+
+                // Busca
+                document.getElementById(ProdutosScript_ID_CAMPO_BUSCA).addEventListener('input', function () {
+                    clearTimeout(ProdutosScript_debounceTimerBusca);
+                    const termo = this.value;
+                    ProdutosScript_debounceTimerBusca = setTimeout(() => {
+                        ProdutosScript_carregarListaProdutos(1, termo);
+                    }, 500);
+                });
+
+                // Modal Principal de Produto
+                anexar(ProdutosScript_ID_FORM_PRODUTO, 'submit', ProdutosScript_submeterFormularioProduto);
+                anexar(ProdutosScript_ID_BTN_FECHAR_MODAL_PRODUTO, 'click', ProdutosScript_fecharModalProduto);
+                anexar(ProdutosScript_ID_BTN_CANCELAR_MODAL_PRODUTO, 'click', ProdutosScript_fecharModalProduto);
+
+                // Modal de Exclusão e Realocação
+                anexar(ProdutosScript_ID_BTN_FECHAR_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO, 'click', ProdutosScript_fecharModalConfirmarExclusaoProduto);
+                anexar(ProdutosScript_ID_BTN_CANCELAR_MODAL_CONFIRMAR_EXCLUSAO_PRODUTO, 'click', ProdutosScript_fecharModalConfirmarExclusaoProduto);
+                anexar(ProdutosScript_ID_BTN_FECHAR_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO, 'click', ProdutosScript_fecharModalRealocarSubProdutosProduto);
+                anexar(ProdutosScript_ID_BTN_CANCELAR_MODAL_REALOCAR_SUBPRODUTOS_PRODUTO, 'click', ProdutosScript_fecharModalRealocarSubProdutosProduto);
+                anexar(ProdutosScript_ID_BTN_CONFIRMAR_REALOCACAO_PRODUTO, 'click', ProdutosScript_confirmarRealocacaoEExcluirProduto);
+
+                // Modal de Gerenciar Subprodutos
+                anexar(ProdutosScript_ID_BTN_FECHAR_MODAL_GERENCIAR_SUBPRODUTOS, 'click', ProdutosScript_fecharModalGerenciarSubprodutos);
+                anexar(ProdutosScript_ID_BTN_CONCLUIR_MODAL_GERENCIAR_SUBPRODUTOS, 'click', ProdutosScript_fecharModalGerenciarSubprodutos);
+                anexar(ProdutosScript_ID_BTN_TOGGLE_ADICIONAR_SUBPRODUTO, 'click', ProdutosScript_toggleAdicionarSubprodutoForm);
+                anexar(ProdutosScript_ID_FORM_ADICIONAR_SUBPRODUTO, 'submit', ProdutosScript_salvarNovoSubprodutoVinculadoHandler);
+                anexar(ProdutosScript_ID_BTN_CANCELAR_FORM_SUBPRODUTO, 'click', ProdutosScript_resetarFormSubproduto);
+
+                // Expondo funções para serem chamadas pelo onclick do HTML dinâmico
+                window.ProdutosScript_prepararEdicaoSubproduto = ProdutosScript_carregarSubProdutoParaEdicao;
+                window.ProdutosScript_excluirSubproduto = ProdutosScript_confirmarExcluirSubproduto;
+            }
+
+            // --- INICIALIZAÇÃO ---
+            console.log("Inicializando o script de Produtos...");
+            ProdutosScript_anexarListenersGlobais();
+            ProdutosScript_carregarListaProdutos(1);
+            ProdutosScript_atualizarEstadoBotoesPainelAcoes();
+
+        })();
+    </script>
+</body>
+
+</html>

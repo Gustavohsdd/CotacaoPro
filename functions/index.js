@@ -8,6 +8,7 @@ import cors from "cors";
 
 // Importa os roteadores dos módulos
 import { fornecedoresRouter } from "./fornecedores.js";
+import { produtosRouter } from "./produtos.js";
 
 // Inicializa o Firebase Admin SDK
 admin.initializeApp();
@@ -25,12 +26,10 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 // --- ROTAS DA API ---
-// Usa os roteadores dos módulos. Todas as rotas definidas em fornecedores.js
+// Usa os roteadores dos módulos. Todas as rotas definidas em seus respectivos arquivos
 // agora estarão disponíveis sob o prefixo /api
 app.use('/api', fornecedoresRouter);
-// Futuramente, você adicionará outros aqui:
-// import { produtosRouter } from "./produtos.js";
-// app.use('/api', produtosRouter);
+app.use('/api', produtosRouter);
 
 
 // Exporta a aplicação Express como uma única Cloud Function chamada "api"
