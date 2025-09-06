@@ -15,7 +15,8 @@
         "firebase-debug.log",
         "firebase-debug.*.log",
         "*.local"
-      ]
+      ],
+      "runtime": "nodejs20"
     }
   ],
   "storage": {
@@ -29,16 +30,36 @@
       "**/node_modules/**"
     ],
     "rewrites": [
-      { "source": "**", "destination": "/index.html" }
+      {
+        "source": "/api/**",
+        "function": "api"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
     ]
   },
   "emulators": {
-    "auth": { "port": 9109 },
-    "functions": { "port": 5002 },
-    "firestore": { "port": 8081 },
-    "hosting": { "port": 5005 },
-    "storage": { "port": 9201 },
-    "ui": { "enabled": true, "port": 4101 },
+    "auth": {
+      "port": 9109
+    },
+    "functions": {
+      "port": 5002
+    },
+    "firestore": {
+      "port": 8081
+    },
+    "hosting": {
+      "port": 5005
+    },
+    "storage": {
+      "port": 9201
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4101
+    },
     "singleProjectMode": true
   }
 }

@@ -1,15 +1,86 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cotação Pro — Dev</title>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotação Pro — Firebase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; overflow-x: hidden; }
+    .success-message { background-color: #D1FAE5; color: #065F46; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #6EE7B7; margin-bottom: 1rem; }
+    .error-message { background-color: #FEE2E2; color: #991B1B; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #FCA5A5; margin-bottom: 1rem; }
+    input[type="text"], input[type="email"], input[type="tel"], input[type="number"], textarea, select {
+      padding: 0.6rem 0.75rem;
+    }
+    main::-webkit-scrollbar { width: 8px; }
+    main::-webkit-scrollbar-thumb { background-color: #60A5FA; border-radius: 4px; }
+    main::-webkit-scrollbar-track { background-color: #EFF6FF; }
+    .h-screen-flex { display: flex; min-height: 100vh; }
+    @media (max-width: 768px) {
+      .h-screen-flex { flex-direction: column; }
+      aside { width: 100% !important; height: auto !important; }
+      #mainContentArea { padding: 1rem; }
+    }
+    .table-auto th, .table-auto td { padding: 0.75rem 1rem; border-bottom: 1px solid #E5E7EB; text-align: left; }
+    .menu-item.active { background-color: #2563EB; font-weight: 600; }
+  </style>
 </head>
-<body>
-  <h1>Cotação Pro</h1>
-  <p id="status">Iniciando Firebase…</p>
+<body class="bg-blue-50 text-gray-800">
+
+  <div class="h-screen-flex">
+    <aside class="w-60 md:w-64 bg-blue-700 text-blue-50 p-5 space-y-6 shadow-lg">
+      <h1 class="text-3xl font-bold text-center md:text-left">CotaçãoPRO</h1>
+      <nav>
+        <ul class="space-y-2">
+          <li>
+            <a href="#" onclick="index_navigateTo('fornecedores'); return false;" id="menuFornecedores"
+               class="menu-item flex items-center py-2.5 px-4 rounded-lg transition duration-200 hover:bg-blue-600">
+              <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857 M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              Fornecedores
+            </a>
+          </li>
+          <li>
+            <a href="#" onclick="index_navigateTo('produtos'); return false;" id="menuProdutos"
+               class="menu-item flex items-center py-2.5 px-4 rounded-lg transition duration-200 hover:bg-blue-600">
+              <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+              Produtos
+            </a>
+          </li>
+          <li>
+            <a href="#" onclick="index_navigateTo('subprodutos'); return false;" id="menuSubprodutos" class="menu-item flex items-center py-2.5 px-4 rounded-lg transition duration-200 hover:bg-blue-600">
+              <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h10m-5 5v5m-5-5h10a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 012-2z"/></svg>
+              SubProdutos
+            </a>
+          </li>
+          <li>
+            <a href="#" onclick="index_navigateTo('cotacoes'); return false;" id="menuCotacoes" class="menu-item flex items-center py-2.5 px-4 rounded-lg transition duration-200 hover:bg-blue-600">
+              <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Cotações
+            </a>
+          </li>
+          <li>
+            <a href="#" onclick="index_navigateTo('notasfiscais'); return false;" id="menuNotasfiscais" class="menu-item flex items-center py-2.5 px-4 rounded-lg transition duration-200 hover:bg-blue-600">
+              <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Notas Fiscais
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main id="mainContentArea" class="flex-1 p-6 md:p-10 overflow-y-auto">
+      <div>
+        <h2 class="text-2xl font-semibold mb-4">Bem-vindo ao CotaçãoPRO</h2>
+        <p>Selecione uma opção no menu ao lado para começar.</p>
+        <p id="status" class="mt-4 font-semibold text-gray-600">Iniciando Firebase...</p>
+      </div>
+    </main>
+  </div>
 
   <script type="module">
+    // Importações do Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAuth, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
     import { getFirestore, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
@@ -20,17 +91,18 @@
       apiKey: "AIzaSyA8DY8WU_l_bfMgbzxpaDuAHp9GAmeYOAE",
       authDomain: "cotacao-pro.firebaseapp.com",
       projectId: "cotacao-pro",
-      storageBucket: "cotacao-pro.firebasestorage.app",
+      storageBucket: "cotacao-pro.appspot.com",
       messagingSenderId: "957072245454",
       appId: "1:957072245454:web:8ec2940ecfe6d7342e869f"
     };
 
+    // Inicialização do Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const storage = getStorage(app);
 
-    // Emuladores (usando as portas que escolhemos)
+    // Conecta aos emuladores se estiver rodando localmente
     if (location.hostname === "localhost") {
       connectAuthEmulator(auth, "http://127.0.0.1:9109");
       connectFirestoreEmulator(db, "127.0.0.1", 8081);
@@ -38,6 +110,69 @@
     }
 
     document.getElementById("status").textContent = "Firebase inicializado!";
+  </script>
+
+  <script>
+    // Lógica de navegação (do PaginaPrincipal.html, adaptada para Firebase)
+    const mainContentArea = document.getElementById('mainContentArea');
+    let activeMenuItem = null;
+
+    function index_setActiveMenu(viewName) {
+      if (activeMenuItem) {
+        activeMenuItem.classList.remove('active');
+      }
+      const menuItemId = 'menu' + viewName.charAt(0).toUpperCase() + viewName.slice(1);
+      const currentElement = document.getElementById(menuItemId);
+      if (currentElement) {
+        currentElement.classList.add('active');
+        activeMenuItem = currentElement;
+      } else {
+        console.warn("Menu item não encontrado para o ID:", menuItemId, ". Verifique se o ID no HTML corresponde à viewName '"+viewName+"'.");
+      }
+    }
+
+    function index_navigateTo(viewName) {
+      mainContentArea.innerHTML = `<div class="p-4 text-center text-blue-600"><svg class="animate-spin h-6 w-6 text-blue-500 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Carregando ${viewName}...</div>`;
+      index_setActiveMenu(viewName);
+
+      // Substitui google.script.run por fetch para a Cloud Function
+      fetch(`/api/view/${viewName}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Erro na rede: ${response.statusText}`);
+          }
+          return response.text();
+        })
+        .then(htmlContent => {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = htmlContent;
+
+          mainContentArea.innerHTML = '';
+
+          // Adiciona o conteúdo HTML
+          Array.from(tempDiv.childNodes).forEach(node => {
+            if (node.nodeName !== 'SCRIPT') {
+              mainContentArea.appendChild(node.cloneNode(true));
+            }
+          });
+
+          // Executa os scripts da view carregada
+          const scriptsToExecute = Array.from(tempDiv.querySelectorAll('script'));
+          scriptsToExecute.forEach(oldScript => {
+            const newScript = document.createElement('script');
+            Array.from(oldScript.attributes).forEach(attr => {
+              newScript.setAttribute(attr.name, attr.value);
+            });
+            newScript.textContent = oldScript.textContent;
+            document.body.appendChild(newScript);
+          });
+        })
+        .catch(error => {
+          const errMsg = error.message || "Erro desconhecido.";
+          mainContentArea.innerHTML = `<div class="error-message p-4">Erro ao carregar a view '${viewName}': ${errMsg}</div>`;
+          console.error("Erro ao chamar a API para '" + viewName + "':", error);
+        });
+    }
   </script>
 </body>
 </html>
