@@ -89,17 +89,21 @@ produtosRouter.post('/produtos/create', (req, res) => {
     try {
         const dadosNovoProduto = req.body;
         if (!dadosNovoProduto || !dadosNovoProduto["Produto"]) {
-            return res.status(400).json({ success: false, message: "O campo 'Produto' é obrigatório." });
+            return res.status(400).json({ error: true, success: false, message: "O campo 'Produto' é obrigatório." });
         }
 
         const nomeNovoProdutoNormalizado = produtos_normalizarTextoComparacao(dadosNovoProduto["Produto"]);
         const produtoExistente = mockProdutos.some(p => produtos_normalizarTextoComparacao(p.Produto) === nomeNovoProdutoNormalizado);
 
         if (produtoExistente) {
-            return res.status(409).json({ success: false, message: `O produto '${dadosNovoProduto["Produto"]}' já está cadastrado.` });
+            return res.status(409).json({ error: true, success: false, message: `O produto '${dadosNovoProduto["Produto"]}' já está cadastrado.` });
         }
 
         const novoId = String(proximoIdProduto++);
+        
+        // Remove a propriedade ID vazia vinda do formulário para não sobrescrever o novoId
+        delete dadosNovoProduto.ID;
+
         const novoProduto = {
             "Data de Cadastro": new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
             "ID": novoId,
@@ -110,7 +114,7 @@ produtosRouter.post('/produtos/create', (req, res) => {
         res.status(201).json({ success: true, message: "Produto criado com sucesso!", novoId: novoId });
     } catch (e) {
         logger.error("Erro ao criar produto:", e);
-        res.status(500).json({ success: false, message: e.message });
+        res.status(500).json({ error: true, success: false, message: e.message });
     }
 });
 
@@ -124,12 +128,12 @@ produtosRouter.post('/produtos/update', (req, res) => {
         const dadosProdutoAtualizar = req.body;
         const { ID } = dadosProdutoAtualizar;
         if (!ID) {
-            return res.status(400).json({ success: false, message: "ID do produto é obrigatório para atualização." });
+            return res.status(400).json({ error: true, success: false, message: "ID do produto é obrigatório para atualização." });
         }
 
         const index = mockProdutos.findIndex(p => p.ID === String(ID));
         if (index === -1) {
-            return res.status(404).json({ success: false, message: `Produto com ID '${ID}' não encontrado.` });
+            return res.status(404).json({ error: true, success: false, message: `Produto com ID '${ID}' não encontrado.` });
         }
 
         const nomeProdutoAntigo = mockProdutos[index].Produto;
@@ -139,7 +143,7 @@ produtosRouter.post('/produtos/update', (req, res) => {
         if (nomeNovoProduto && produtos_normalizarTextoComparacao(nomeProdutoAntigo) !== produtos_normalizarTextoComparacao(nomeNovoProduto)) {
             const outroProdutoComMesmoNome = mockProdutos.find(p => p.ID !== String(ID) && produtos_normalizarTextoComparacao(p.Produto) === produtos_normalizarTextoComparacao(nomeNovoProduto));
             if (outroProdutoComMesmoNome) {
-                return res.status(409).json({ success: false, message: `O nome de produto '${nomeNovoProduto}' já está cadastrado para outro ID.` });
+                return res.status(409).json({ error: true, success: false, message: `O nome de produto '${nomeNovoProduto}' já está cadastrado para outro ID.` });
             }
         }
 
@@ -158,7 +162,7 @@ produtosRouter.post('/produtos/update', (req, res) => {
         res.status(200).json({ success: true, message: "Produto atualizado com sucesso!" });
     } catch (e) {
         logger.error("Erro ao atualizar produto:", e);
-        res.status(500).json({ success: false, message: e.message });
+        res.status(500).json({ error: true, success: false, message: e.message });
     }
 });
 
@@ -210,16 +214,18 @@ produtosRouter.post('/produtos/delete', (req, res) => {
 
     const index = mockProdutos.findIndex(p => p.ID === String(idProduto));
     if (index === -1) {
-        return res.status(404).json({ success: false, message: `Produto com ID '${idProduto}' não encontrado.` });
+        return res.status(404).json({ error: true, success: false, message: `Produto com ID '${idProduto}' não encontrado.` });
     }
 
+    const nomeDoProdutoExcluido = mockProdutos[index].Produto;
     mockProdutos.splice(index, 1);
-    let mensagemFinal = `Produto '${nomeProdutoOriginal}' excluído.`;
+    
+    let mensagemFinal = `Produto '${nomeDoProdutoExcluido}' excluído.`;
     let subProdutosAfetadosCount = 0;
 
     if (deletarSubprodutosVinculados) {
         const originalLength = mockSubProdutos.length;
-        mockSubProdutos = mockSubProdutos.filter(sp => sp["Produto Vinculado"] !== nomeProdutoOriginal);
+        mockSubProdutos = mockSubProdutos.filter(sp => sp["Produto Vinculado"] !== nomeDoProdutoExcluido);
         subProdutosAfetadosCount = originalLength - mockSubProdutos.length;
         if (subProdutosAfetadosCount > 0) {
             mensagemFinal += ` ${subProdutosAfetadosCount} subprodutos vinculados foram excluídos.`;
