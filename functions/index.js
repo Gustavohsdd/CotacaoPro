@@ -18,9 +18,9 @@ setGlobalOptions({ region: "us-central1", memory: "256MiB" });
 const app = express();
 
 // Aplica o middleware do CORS para permitir requisições do frontend
+// É uma boa prática aplicar o CORS antes das rotas
 app.use(cors({ origin: true }));
 
-// >>>>> LINHA ADICIONADA - CORREÇÃO CRÍTICA <<<<<
 // Este middleware é essencial para que o Express consiga interpretar o corpo (body) de requisições JSON.
 app.use(express.json());
 
