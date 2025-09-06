@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <title>SubProdutos</title>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c5c5c5;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Estilos para o painel de ações global (reutilizados e adaptados) */
+        .btn-painel-acao {
+            font-size: 0.875rem;
+            /* text-sm */
+            font-weight: 600;
+            /* semibold */
+            padding: 0.5rem 0.75rem;
+            /* py-2 px-3 */
+            border-radius: 0.375rem;
+            /* rounded-md */
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            /* shadow-sm */
+            transition: background-color 0.15s ease-in-out, opacity 0.15s ease-in-out;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            /* gap-x-1.5 */
+            color: white;
+            min-width: 100px;
+        }
+
+        .btn-painel-acao svg {
+            width: 1rem;
+            /* w-4 */
+            height: 1rem;
+            /* h-4 */
+        }
+
+        .btn-painel-acao:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-painel-novo {
+            background-color: #2563eb;
+            /* blue-600 */
+        }
+
+        .btn-painel-novo:hover:not(:disabled) {
+            background-color: #1d4ed8;
+            /* blue-700 */
+        }
+
+        .btn-painel-editar {
+            background-color: #f59e0b;
+            /* amber-500 */
+        }
+
+        .btn-painel-editar:hover:not(:disabled) {
+            background-color: #d97706;
+            /* amber-600 */
+        }
+
+        .btn-painel-excluir {
+            background-color: #ef4444;
+            /* red-500 */
+        }
+
+        .btn-painel-excluir:hover:not(:disabled) {
+            background-color: #dc2626;
+            /* red-600 */
+        }
+
+        .btn-painel-multiplos {
+            background-color: #10b981;
+            /* green-500 */
+        }
+
+        .btn-painel-multiplos:hover:not(:disabled) {
+            background-color: #059669;
+            /* green-600 */
+        }
+
+        /* Estilo padronizado para hover e seleção nas linhas da tabela */
+        .tabela-interativa tbody tr {
+            cursor: pointer;
+        }
+
+        .tabela-interativa tbody tr:hover {
+            background-color: #f1f5f9;
+            /* slate-100 */
+        }
+
+        .tabela-interativa tbody tr.linha-selecionada {
+            background-color: #bae6fd !important;
+            /* sky-200 */
+        }
+
+        .tabela-interativa tbody tr.linha-selecionada td {
+            color: #075985;
+            /* sky-700 */
+        }
+
+        .tabela-interativa tbody tr.linha-selecionada:hover {
+            background-color: #bae6fd !important;
+        }
+
+        /* Estilos de paginação */
+        .btn-paginacao {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            border-width: 1px;
+            border-color: #D1D5DB;
+            background-color: #FFFFFF;
+            color: #374151;
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-paginacao:hover {
+            background-color: #F9FAFB;
+        }
+
+        .btn-paginacao:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <div class="container mx-auto p-4">
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <h2 class="text-3xl font-bold text-gray-800">SubProdutos</h2>
+        </div>
+
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-x-4 gap-y-3">
+            <div id="SubProdutosScript_painelAcoesGlobal"
+                class="p-3 bg-gray-100 rounded-lg shadow-md flex flex-wrap items-center gap-2 sm:gap-3">
+                <button id="SubProdutosScript_btnNovoSubProdutoGlobal" class="btn-painel-acao btn-painel-novo">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M10 3a1 1 0 011 1v4h4a1 1 0 110 2h-4v4a1 1 0 11-2 0v-4H5a1 1 0 110-2h4V4a1 1 0 011-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <span>Novo SubProduto</span>
+                </button>
+                <button id="SubProdutosScript_btnCadastrarMultiplosGlobal" class="btn-painel-acao btn-painel-multiplos">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path
+                            d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a1 1 0 011-1h14a1 1 0 110 2H3a1 1 0 01-1-1z" />
+                    </svg>
+                    <span>Múltiplos</span>
+                </button>
+                <span class="border-l h-6 mx-1 sm:mx-2 self-center"></span>
+                <button id="SubProdutosScript_btnEditarGlobal" disabled
+                    class="btn-painel-acao btn-painel-editar disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                        <path fill-rule="evenodd"
+                            d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <span>Editar</span>
+                </button>
+                <button id="SubProdutosScript_btnExcluirGlobal" disabled
+                    class="btn-painel-acao btn-painel-excluir disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <span>Excluir</span>
+                </button>
+            </div>
+            <div class="flex items-center">
+                <input type="text" id="SubProdutosScript_campoBusca"
+                    class="w-full sm:w-60 md:w-72 p-2 border-2 border-blue-400 rounded-lg shadow-sm text-sm text-gray-700 placeholder-gray-500 focus:ring-2 focus:ring-blue-300 focus:border-blue-600"
+                    placeholder="Buscar subproduto...">
+            </div>
+        </div>
+
+        <div id="SubProdutosScript_mensagemFeedbackGlobal" class="mb-4"></div>
+        <div class="bg-white shadow-xl rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full table-auto tabela-interativa" id="SubProdutosScript_tabelaSubProdutos">
+                    <thead class="bg-blue-600 text-white uppercase text-sm leading-normal">
+                        <tr>
+                            <th colspan="7" class="px-4 py-3 text-left text-xs font-semibold tracking-wider">Carregando
+                                Cabeçalhos...</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-800 text-sm font-light divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="7" class="text-center p-8 text-gray-500"><svg
+                                    class="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2"
+                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>Carregando dados...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div id="SubProdutosScript_controlesPaginacao"
+            class="mt-6 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-700 gap-y-2"></div>
+    </div>
+
+    <div id="SubProdutosScript_modalSubProduto"
+        class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-start hidden z-50 pt-6 md:pt-10 pb-6">
+        <div class="relative mx-auto p-5 md:p-6 border w-full max-w-xl shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3 border-b mb-5">
+                <div class="flex items-baseline space-x-3">
+                    <h3 id="SubProdutosScript_tituloModalSubProduto"
+                        class="text-xl md:text-2xl font-semibold text-gray-800">SubProduto</h3>
+                    <div id="SubProdutosScript_divIdExibicaoModalSubProduto" class="flex items-center hidden">
+                        <span class="text-xs md:text-sm font-medium text-gray-500 mr-1">ID:</span>
+                        <input type="text" id="SubProdutosScript_campoIdExibicaoModalSubProduto"
+                            class="p-1 text-xs md:text-sm bg-gray-100 border-none rounded w-12 md:w-16 text-center"
+                            readonly>
+                    </div>
+                </div>
+                <button id="SubProdutosScript_btnFecharModalSubProduto"
+                    class="text-gray-400 hover:text-gray-600 text-3xl font-light leading-none p-1">&times;</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto pr-1 md:pr-2 custom-scrollbar">
+                <form id="SubProdutosScript_formSubProduto" class="space-y-4">
+                    <input type="hidden" id="SubProdutosScript_campoIdFormModalSubProduto" name="ID">
+                    <div>
+                        <label for="SubProdutosScript_inputNomeSubProduto"
+                            class="block text-sm font-medium text-gray-700 mb-1">SubProduto*</label>
+                        <input type="text" id="SubProdutosScript_inputNomeSubProduto" name="SubProduto" required
+                            class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="SubProdutosScript_selectProdutoVinculadoSubProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Produto Vinculado*</label>
+                            <select id="SubProdutosScript_selectProdutoVinculadoSubProduto" name="Produto Vinculado"
+                                required
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Carregando produtos...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="SubProdutosScript_selectFornecedorSubProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
+                            <select id="SubProdutosScript_selectFornecedorSubProduto" name="Fornecedor"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Carregando fornecedores...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="SubProdutosScript_inputCategoriaSubProduto"
+                            class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                        <input type="text" id="SubProdutosScript_inputCategoriaSubProduto" name="Categoria"
+                            class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="SubProdutosScript_inputTamanhoSubProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Tamanho</label>
+                            <input type="text" id="SubProdutosScript_inputTamanhoSubProduto" name="Tamanho"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="SubProdutosScript_inputUnidadeSubProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">UN*</label>
+                            <input type="text" id="SubProdutosScript_inputUnidadeSubProduto" name="UN" required
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="SubProdutosScript_inputFatorSubProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">Fator</label>
+                            <input type="number" id="SubProdutosScript_inputFatorSubProduto" name="Fator"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                step="any">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="SubProdutosScript_inputNCMSubProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">NCM</label>
+                            <input type="text" id="SubProdutosScript_inputNCMSubProduto" name="NCM"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="SubProdutosScript_inputCSTSubProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">CST</label>
+                            <input type="text" id="SubProdutosScript_inputCSTSubProduto" name="CST"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="SubProdutosScript_inputCFOPSubProduto"
+                                class="block text-sm font-medium text-gray-700 mb-1">CFOP</label>
+                            <input type="text" id="SubProdutosScript_inputCFOPSubProduto" name="CFOP"
+                                class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="SubProdutosScript_selectStatusSubProduto"
+                            class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="SubProdutosScript_selectStatusSubProduto" name="Status"
+                            class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <option value="Ativo" selected>Ativo</option>
+                            <option value="Inativo">Inativo</option>
+                            <option value="Bloqueado">Bloqueado</option>
+                        </select>
+                    </div>
+                    <div id="SubProdutosScript_mensagemErroModalSubProduto" class="text-sm my-3 min-h-[20px]"></div>
+                    <div class="flex justify-end items-center pt-4 border-t mt-5">
+                        <button type="button" id="SubProdutosScript_btnCancelarModalSubProduto"
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md mr-3 shadow-sm transition-colors">Cancelar</button>
+                        <button type="submit" id="SubProdutosScript_btnSalvarModalSubProduto"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors">Salvar
+                            SubProduto</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="SubProdutosScript_modalConfirmarExclusaoSubProduto"
+        class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-center hidden z-50 px-4">
+        <div class="relative mx-auto p-6 border w-full max-w-lg shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3 border-b mb-4">
+                <h3 id="SubProdutosScript_tituloModalConfirmarExclusaoSubProduto"
+                    class="text-lg font-semibold text-gray-800">Confirmar Exclusão</h3>
+                <button id="SubProdutosScript_btnFecharModalConfirmarExclusaoSubProduto"
+                    class="text-gray-400 hover:text-gray-600 text-3xl font-light leading-none p-1">&times;</button>
+            </div>
+            <div class="text-sm text-gray-700 mb-1">
+                <p>Você está prestes a excluir o subproduto: <strong
+                        id="SubProdutosScript_nomeSubProdutoParaExcluirModal"></strong>.</p>
+                <p class="mt-2">Esta ação não pode ser desfeita. Deseja continuar?</p>
+            </div>
+            <div id="SubProdutosScript_mensagemErroModalConfirmarExclusaoSubProduto"
+                class="text-sm mt-3 mb-3 min-h-[20px]"></div>
+            <div class="flex justify-end items-center pt-4 border-t mt-5">
+                <button id="SubProdutosScript_btnCancelarModalConfirmarExclusaoSubProduto" type="button"
+                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md mr-3 shadow-sm transition-colors">Cancelar</button>
+                <button id="SubProdutosScript_btnConfirmarExclusaoDefinitivaSubProduto" type="button"
+                    class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors">Sim,
+                    Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="SubProdutosScript_modalCadastrarMultiplosSubProdutos"
+        class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-start hidden z-50 pt-6 md:pt-10 pb-6 px-4">
+        <div
+            class="relative mx-auto p-5 md:p-6 border w-full max-w-3xl lg:max-w-5xl xl:max-w-6xl shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3 border-b mb-5">
+                <h3 class="text-xl md:text-2xl font-semibold text-gray-800">Cadastrar Múltiplos SubProdutos</h3>
+                <button id="SubProdutosScript_btnFecharModalCadastrarMultiplosSubProdutos"
+                    class="text-gray-400 hover:text-gray-600 text-3xl font-light leading-none p-1">&times;</button>
+            </div>
+
+            <form id="SubProdutosScript_formCadastrarMultiplosSubProdutos" class="space-y-4">
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <label for="SubProdutosScript_multiSelectFornecedor"
+                            class="block text-sm font-medium text-gray-700 mb-1">Fornecedor (para todos)</label>
+                        <select id="SubProdutosScript_multiSelectFornecedor" name="fornecedorGlobal"
+                            class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Carregando fornecedores...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="max-h-[50vh] overflow-y-auto pr-1 md:pr-2 custom-scrollbar border rounded-md p-1">
+                    <div id="SubProdutosScript_containerLinhasMultiplosSubProdutos" class="space-y-3 p-3">
+                        <p class="text-gray-500 text-sm text-center py-4">Clique em "Adicionar SubProduto" para começar.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex justify-start mt-3">
+                    <button type="button" id="SubProdutosScript_btnAdicionarLinhaMultiplos"
+                        class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-3 rounded-md shadow-sm text-sm inline-flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M10 3a1 1 0 011 1v4h4a1 1 0 110 2h-4v4a1 1 0 11-2 0v-4H5a1 1 0 110-2h4V4a1 1 0 011-1z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        Adicionar SubProduto
+                    </button>
+                </div>
+
+                <div id="SubProdutosScript_mensagemErroModalMultiplosSubProdutos" class="text-sm my-3 min-h-[20px]">
+                </div>
+                <div class="flex justify-end items-center pt-4 border-t mt-5">
+                    <button type="button" id="SubProdutosScript_btnCancelarModalMultiplosSubProdutos"
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md mr-3 shadow-sm transition-colors">Cancelar</button>
+                    <button type="submit" id="SubProdutosScript_btnSalvarModalMultiplosSubProdutos"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors"
+                        disabled>Salvar Todos</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        (function initSubProdutosScript() {
+            // IDs dos Elementos do DOM (Principais e Modais)
+            const SubProdutosScript_ID_TABELA_SUBPRODUTOS = 'SubProdutosScript_tabelaSubProdutos';
+            const SubProdutosScript_ID_MENSAGEM_FEEDBACK_GLOBAL = 'SubProdutosScript_mensagemFeedbackGlobal';
+            const SubProdutosScript_ID_CONTROLES_PAGINACAO = 'SubProdutosScript_controlesPaginacao';
+            const SubProdutosScript_ID_CAMPO_BUSCA = 'SubProdutosScript_campoBusca';
+
+            // IDs do Painel de Ações Global
+            const SubProdutosScript_ID_BTN_NOVO_SUBPRODUTO_GLOBAL = 'SubProdutosScript_btnNovoSubProdutoGlobal';
+            const SubProdutosScript_ID_BTN_CADASTRAR_MULTIPLOS_GLOBAL = 'SubProdutosScript_btnCadastrarMultiplosGlobal';
+            const SubProdutosScript_ID_BTN_EDITAR_GLOBAL = 'SubProdutosScript_btnEditarGlobal';
+            const SubProdutosScript_ID_BTN_EXCLUIR_GLOBAL = 'SubProdutosScript_btnExcluirGlobal';
+
+            // IDs do Modal Principal de SubProduto (Individual)
+            const SubProdutosScript_ID_MODAL_SUBPRODUTO = 'SubProdutosScript_modalSubProduto';
+            const SubProdutosScript_ID_TITULO_MODAL_SUBPRODUTO = 'SubProdutosScript_tituloModalSubProduto';
+            const SubProdutosScript_ID_FORM_SUBPRODUTO = 'SubProdutosScript_formSubProduto';
+            const SubProdutosScript_ID_DIV_ID_EXIBICAO_MODAL_SUBPRODUTO = 'SubProdutosScript_divIdExibicaoModalSubProduto';
+            const SubProdutosScript_ID_CAMPO_ID_EXIBICAO_MODAL_SUBPRODUTO = 'SubProdutosScript_campoIdExibicaoModalSubProduto';
+            const SubProdutosScript_ID_CAMPO_ID_FORM_MODAL_SUBPRODUTO = 'SubProdutosScript_campoIdFormModalSubProduto';
+            const SubProdutosScript_ID_BTN_FECHAR_MODAL_SUBPRODUTO = 'SubProdutosScript_btnFecharModalSubProduto';
+            const SubProdutosScript_ID_BTN_CANCELAR_MODAL_SUBPRODUTO = 'SubProdutosScript_btnCancelarModalSubProduto';
+            const SubProdutosScript_ID_BTN_SALVAR_MODAL_SUBPRODUTO = 'SubProdutosScript_btnSalvarModalSubProduto';
+            const SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_SUBPRODUTO = 'SubProdutosScript_mensagemErroModalSubProduto';
+            const SubProdutosScript_ID_INPUT_NOME_SUBPRODUTO = 'SubProdutosScript_inputNomeSubProduto';
+            const SubProdutosScript_ID_SELECT_PRODUTO_VINCULADO_SUBPRODUTO = 'SubProdutosScript_selectProdutoVinculadoSubProduto';
+            const SubProdutosScript_ID_SELECT_FORNECEDOR_SUBPRODUTO = 'SubProdutosScript_selectFornecedorSubProduto';
+
+            // IDs do Modal de Confirmação de Exclusão de SubProduto
+            const SubProdutosScript_ID_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO = 'SubProdutosScript_modalConfirmarExclusaoSubProduto';
+            const SubProdutosScript_ID_NOME_SUBPRODUTO_EXCLUIR_MODAL = 'SubProdutosScript_nomeSubProdutoParaExcluirModal';
+            const SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO = 'SubProdutosScript_mensagemErroModalConfirmarExclusaoSubProduto';
+            const SubProdutosScript_ID_BTN_FECHAR_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO = 'SubProdutosScript_btnFecharModalConfirmarExclusaoSubProduto';
+            const SubProdutosScript_ID_BTN_CANCELAR_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO = 'SubProdutosScript_btnCancelarModalConfirmarExclusaoSubProduto';
+            const SubProdutosScript_ID_BTN_CONFIRMAR_EXCLUSAO_DEFINITIVA_SUBPRODUTO = 'SubProdutosScript_btnConfirmarExclusaoDefinitivaSubProduto';
+
+            // IDs do Modal de Cadastrar Múltiplos SubProdutos
+            const SubProdutosScript_ID_MODAL_CADASTRAR_MULTIPLOS_SUBPRODUTOS = 'SubProdutosScript_modalCadastrarMultiplosSubProdutos';
+            const SubProdutosScript_ID_FORM_CADASTRAR_MULTIPLOS_SUBPRODUTOS = 'SubProdutosScript_formCadastrarMultiplosSubProdutos';
+            const SubProdutosScript_ID_BTN_FECHAR_MODAL_CADASTRAR_MULTIPLOS_SUBPRODUTOS = 'SubProdutosScript_btnFecharModalCadastrarMultiplosSubProdutos';
+            const SubProdutosScript_ID_BTN_CANCELAR_MODAL_MULTIPLOS_SUBPRODUTOS = 'SubProdutosScript_btnCancelarModalMultiplosSubProdutos';
+            const SubProdutosScript_ID_BTN_SALVAR_MODAL_MULTIPLOS_SUBPRODUTOS = 'SubProdutosScript_btnSalvarModalMultiplosSubProdutos';
+            const SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_MULTIPLOS_SUBPRODUTOS = 'SubProdutosScript_mensagemErroModalMultiplosSubProdutos';
+            const SubProdutosScript_ID_MULTI_SELECT_FORNECEDOR = 'SubProdutosScript_multiSelectFornecedor';
+            const SubProdutosScript_ID_CONTAINER_LINHAS_MULTIPLOS_SUBPRODUTOS = 'SubProdutosScript_containerLinhasMultiplosSubProdutos';
+            const SubProdutosScript_ID_BTN_ADICIONAR_LINHA_MULTIPLOS = 'SubProdutosScript_btnAdicionarLinhaMultiplos';
+
+            // Variáveis de estado
+            let SubProdutosScript_paginaAtual = 1;
+            const SUBPRODUTOS_SCRIPT_ITENS_POR_PAGINA = 10;
+            let SubProdutosScript_termoBuscaAtual = "";
+            let SubProdutosScript_debounceTimerBusca;
+            let SubProdutosScript_cabecalhosParaExibicaoGlobal = [];
+            let SubProdutosScript_modoModalSubProduto = 'criar';
+            let SubProdutosScript_subProdutoParaExcluirTemp = { id: null, nome: null };
+            let SubProdutosScript_contadorLinhasMultiplos = 0;
+
+            // Variáveis para controle de seleção na tabela
+            let SubProdutosScript_subProdutoSelecionadoId = null;
+            let SubProdutosScript_subProdutoSelecionadoNome = null;
+            let SubProdutosScript_subProdutoSelecionadoObjeto = null;
+            let SubProdutosScript_linhaSelecionadaAnterior = null;
+
+            // Cache para dropdowns
+            let SubProdutosScript_listaProdutosCache = [];
+            let SubProdutosScript_listaFornecedoresCache = [];
+
+            /**
+             * Função central para fazer chamadas à API do Firebase Functions.
+             */
+            async function SubProdutosScript_callApi(endpoint, method = 'POST', body = null) {
+                try {
+                    const options = {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                    };
+                    if (body) {
+                        options.body = JSON.stringify(body);
+                    }
+                    const response = await fetch(`/api/${endpoint}`, options);
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                        throw new Error(errorData.message || 'Erro de comunicação com o servidor.');
+                    }
+                    if (response.status === 204) { // No Content
+                        return { success: true, message: "Operação bem-sucedida sem retorno de dados." };
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error(`Erro na chamada da API [${endpoint}]:`, error);
+                    return { error: true, success: false, message: error.message };
+                }
+            }
+
+            // --- Funções Utilitárias de UI ---
+            function SubProdutosScript_exibirFeedbackGlobal(mensagem, isError = false, duracao = 7000) {
+                const feedbackDiv = document.getElementById(SubProdutosScript_ID_MENSAGEM_FEEDBACK_GLOBAL);
+                if (feedbackDiv) {
+                    const innerDiv = document.createElement('div');
+                    innerDiv.className = `p-3 rounded-md text-sm ${isError ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-green-100 text-green-700 border border-green-300'}`;
+                    innerDiv.textContent = mensagem;
+                    feedbackDiv.innerHTML = '';
+                    feedbackDiv.appendChild(innerDiv);
+                    if (duracao > 0) setTimeout(() => { if (feedbackDiv.contains(innerDiv)) feedbackDiv.innerHTML = ''; }, duracao);
+                }
+            }
+
+            function SubProdutosScript_exibirMensagemEmModal(modalMsgId, mensagem, isError = false) {
+                const mensagemDiv = document.getElementById(modalMsgId);
+                if (mensagemDiv) {
+                    mensagemDiv.textContent = mensagem;
+                    mensagemDiv.className = `text-sm my-3 min-h-[20px] ${isError ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}`;
+                }
+            }
+
+            function SubProdutosScript_mostrarLoadingBotao(botao, textoLoading = "Processando...") {
+                if (!botao) return;
+                if (!botao.dataset.originalContent) {
+                    botao.dataset.originalContent = botao.innerHTML;
+                }
+                botao.disabled = true;
+                botao.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>${textoLoading}`;
+            }
+
+            function SubProdutosScript_restaurarBotao(botao) {
+                if (!botao) return;
+                if (botao.dataset.originalContent) {
+                    botao.innerHTML = botao.dataset.originalContent;
+                    delete botao.dataset.originalContent;
+                }
+                botao.disabled = false;
+            }
+
+            // --- Funções do Painel de Ações Global ---
+            function SubProdutosScript_atualizarEstadoBotoesPainelAcoes() {
+                const btnEditar = document.getElementById(SubProdutosScript_ID_BTN_EDITAR_GLOBAL);
+                const btnExcluir = document.getElementById(SubProdutosScript_ID_BTN_EXCLUIR_GLOBAL);
+                const habilitar = SubProdutosScript_subProdutoSelecionadoId !== null;
+
+                if (btnEditar) btnEditar.disabled = !habilitar;
+                if (btnExcluir) btnExcluir.disabled = !habilitar;
+            }
+
+            // --- Funções para popular Dropdowns ---
+            async function SubProdutosScript_carregarProdutosParaDropdown(selectElementId, valorSelecionado = null) {
+                const selectEl = document.getElementById(selectElementId);
+                if (selectEl) {
+                    selectEl.innerHTML = '<option value="">Carregando...</option>';
+                    selectEl.disabled = true;
+                }
+
+                if (SubProdutosScript_listaProdutosCache.length > 0) {
+                    if (selectEl) {
+                        SubProdutosScript_popularDropdown(selectEl, SubProdutosScript_listaProdutosCache, 'Selecione um Produto Vinculado*', valorSelecionado, 'ID', 'Produto');
+                        selectEl.disabled = false;
+                    }
+                    return;
+                }
+
+                const produtos = await SubProdutosScript_callApi('subprodutos/list-produtos', 'GET');
+                if (produtos && !produtos.error) {
+                    SubProdutosScript_listaProdutosCache = produtos;
+                    if (selectEl) {
+                        SubProdutosScript_popularDropdown(selectEl, produtos, 'Selecione um Produto Vinculado*', valorSelecionado, 'ID', 'Produto');
+                        selectEl.disabled = false;
+                    }
+                } else {
+                    if (selectEl) {
+                        selectEl.innerHTML = '<option value="">Erro ao carregar</option>';
+                        selectEl.disabled = false;
+                    }
+                }
+            }
+
+            async function SubProdutosScript_carregarFornecedoresParaDropdown(selectElementId, valorSelecionado = null) {
+                const selectEl = document.getElementById(selectElementId);
+                if (!selectEl) return;
+                selectEl.innerHTML = '<option value="">Carregando...</option>';
+                selectEl.disabled = true;
+
+                if (SubProdutosScript_listaFornecedoresCache.length > 0) {
+                    SubProdutosScript_popularDropdown(selectEl, SubProdutosScript_listaFornecedoresCache, 'Selecione um Fornecedor (Opcional)', valorSelecionado, 'ID', 'Fornecedor');
+                    selectEl.disabled = false;
+                    return;
+                }
+
+                const fornecedores = await SubProdutosScript_callApi('subprodutos/list-fornecedores', 'GET');
+                if (fornecedores && !fornecedores.error) {
+                    SubProdutosScript_listaFornecedoresCache = fornecedores;
+                    SubProdutosScript_popularDropdown(selectEl, fornecedores, 'Selecione um Fornecedor (Opcional)', valorSelecionado, 'ID', 'Fornecedor');
+                    selectEl.disabled = false;
+                } else {
+                    selectEl.innerHTML = '<option value="">Erro ao carregar</option>';
+                    selectEl.disabled = false;
+                }
+            }
+
+            function SubProdutosScript_popularDropdown(selectElement, dados, placeholderText, valorSelecionado, valorKey = 'ID', textoKey = 'Nome') {
+                if (!selectElement) return;
+                selectElement.innerHTML = '';
+                const placeholderOption = document.createElement('option');
+                placeholderOption.value = "";
+                placeholderOption.textContent = placeholderText;
+                selectElement.appendChild(placeholderOption);
+
+                if (dados && dados.length > 0) {
+                    dados.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item[valorKey];
+                        option.textContent = item[textoKey];
+                        if (valorSelecionado && String(item[valorKey]) === String(valorSelecionado)) {
+                            option.selected = true;
+                        }
+                        selectElement.appendChild(option);
+                    });
+                } else {
+                    const noDataOption = document.createElement('option');
+                    noDataOption.value = "";
+                    noDataOption.textContent = "Nenhum item encontrado";
+                    noDataOption.disabled = true;
+                    selectElement.appendChild(noDataOption);
+                }
+            }
+
+            // --- Funções do Modal Principal de SubProduto (Individual) ---
+            function SubProdutosScript_fecharModalSubProduto() {
+                document.getElementById(SubProdutosScript_ID_MODAL_SUBPRODUTO).classList.add('hidden');
+                document.getElementById(SubProdutosScript_ID_FORM_SUBPRODUTO).reset();
+                SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_SUBPRODUTO, '', false);
+                const btnSalvar = document.getElementById(SubProdutosScript_ID_BTN_SALVAR_MODAL_SUBPRODUTO);
+                if (btnSalvar) SubProdutosScript_restaurarBotao(btnSalvar);
+            }
+
+            function SubProdutosScript_abrirModalParaCriarSubProduto() {
+                SubProdutosScript_modoModalSubProduto = 'criar';
+                document.getElementById(SubProdutosScript_ID_TITULO_MODAL_SUBPRODUTO).textContent = 'Novo SubProduto';
+                document.getElementById(SubProdutosScript_ID_DIV_ID_EXIBICAO_MODAL_SUBPRODUTO).classList.add('hidden');
+                document.getElementById(SubProdutosScript_ID_FORM_SUBPRODUTO).reset();
+                document.getElementById(SubProdutosScript_ID_CAMPO_ID_FORM_MODAL_SUBPRODUTO).value = '';
+
+                SubProdutosScript_carregarProdutosParaDropdown(SubProdutosScript_ID_SELECT_PRODUTO_VINCULADO_SUBPRODUTO);
+                SubProdutosScript_carregarFornecedoresParaDropdown(SubProdutosScript_ID_SELECT_FORNECEDOR_SUBPRODUTO);
+
+                const btnSalvar = document.getElementById(SubProdutosScript_ID_BTN_SALVAR_MODAL_SUBPRODUTO);
+                if (btnSalvar) {
+                    btnSalvar.innerHTML = 'Criar SubProduto';
+                    delete btnSalvar.dataset.originalContent;
+                }
+                SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_SUBPRODUTO, '', false);
+                document.getElementById(SubProdutosScript_ID_MODAL_SUBPRODUTO).classList.remove('hidden');
+                document.getElementById(SubProdutosScript_ID_INPUT_NOME_SUBPRODUTO).focus();
+            }
+
+            async function SubProdutosScript_abrirModalParaEditarSubProduto(subProdutoObj) {
+                SubProdutosScript_modoModalSubProduto = 'editar';
+                const form = document.getElementById(SubProdutosScript_ID_FORM_SUBPRODUTO);
+                form.reset();
+
+                if (!subProdutoObj) {
+                    SubProdutosScript_exibirFeedbackGlobal("Erro: Dados do subproduto não encontrados.", true);
+                    return;
+                }
+
+                document.getElementById(SubProdutosScript_ID_TITULO_MODAL_SUBPRODUTO).textContent = 'Editar SubProduto';
+                document.getElementById(SubProdutosScript_ID_DIV_ID_EXIBICAO_MODAL_SUBPRODUTO).classList.remove('hidden');
+                document.getElementById(SubProdutosScript_ID_CAMPO_ID_EXIBICAO_MODAL_SUBPRODUTO).value = subProdutoObj.ID;
+                document.getElementById(SubProdutosScript_ID_CAMPO_ID_FORM_MODAL_SUBPRODUTO).value = subProdutoObj.ID;
+
+                // Pre-carrega os caches se estiverem vazios
+                if (SubProdutosScript_listaProdutosCache.length === 0) await SubProdutosScript_carregarProdutosParaDropdown(null);
+                if (SubProdutosScript_listaFornecedoresCache.length === 0) await SubProdutosScript_carregarFornecedoresParaDropdown(null);
+
+                let produtoVinculadoId = null;
+                if (subProdutoObj['Produto Vinculado']) {
+                    const produto = SubProdutosScript_listaProdutosCache.find(p => p.Produto === subProdutoObj['Produto Vinculado']);
+                    if (produto) produtoVinculadoId = produto.ID;
+                }
+
+                let fornecedorId = null;
+                if (subProdutoObj['Fornecedor']) {
+                    const fornecedor = SubProdutosScript_listaFornecedoresCache.find(f => f.Fornecedor === subProdutoObj['Fornecedor']);
+                    if (fornecedor) fornecedorId = fornecedor.ID;
+                }
+
+                await SubProdutosScript_carregarProdutosParaDropdown(SubProdutosScript_ID_SELECT_PRODUTO_VINCULADO_SUBPRODUTO, produtoVinculadoId);
+                await SubProdutosScript_carregarFornecedoresParaDropdown(SubProdutosScript_ID_SELECT_FORNECEDOR_SUBPRODUTO, fornecedorId);
+
+                // Preenche o resto do formulário
+                for (const key in subProdutoObj) {
+                    if (form.elements[key]) {
+                        if (key !== "Produto Vinculado" && key !== "Fornecedor") {
+                            form.elements[key].value = subProdutoObj[key] !== null && subProdutoObj[key] !== undefined ? String(subProdutoObj[key]) : "";
+                        }
+                    }
+                }
+
+                const btnSalvar = document.getElementById(SubProdutosScript_ID_BTN_SALVAR_MODAL_SUBPRODUTO);
+                if (btnSalvar) {
+                    btnSalvar.innerHTML = 'Salvar Alterações';
+                    delete btnSalvar.dataset.originalContent;
+                }
+                SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_SUBPRODUTO, '', false);
+                document.getElementById(SubProdutosScript_ID_MODAL_SUBPRODUTO).classList.remove('hidden');
+                document.getElementById(SubProdutosScript_ID_INPUT_NOME_SUBPRODUTO).focus();
+            }
+
+            async function SubProdutosScript_submeterFormularioSubProduto(event) {
+                event.preventDefault();
+                const btnSalvar = document.getElementById(SubProdutosScript_ID_BTN_SALVAR_MODAL_SUBPRODUTO);
+                SubProdutosScript_mostrarLoadingBotao(btnSalvar, SubProdutosScript_modoModalSubProduto === 'criar' ? "Criando..." : "Salvando...");
+
+                const form = document.getElementById(SubProdutosScript_ID_FORM_SUBPRODUTO);
+                const dadosSubProduto = Object.fromEntries(new FormData(form).entries());
+
+                const endpoint = SubProdutosScript_modoModalSubProduto === 'criar'
+                    ? 'subprodutos/create-standalone'
+                    : 'subprodutos/update-standalone';
+
+                const resposta = await SubProdutosScript_callApi(endpoint, 'POST', dadosSubProduto);
+
+                SubProdutosScript_restaurarBotao(btnSalvar);
+                if (resposta.success) {
+                    SubProdutosScript_fecharModalSubProduto();
+                    SubProdutosScript_exibirFeedbackGlobal(resposta.message || "Operação concluída!", false);
+                    const paginaParaRecarregar = SubProdutosScript_modoModalSubProduto === 'criar' ? 1 : SubProdutosScript_paginaAtual;
+                    await SubProdutosScript_carregarListaSubProdutos(paginaParaRecarregar, "");
+                } else {
+                    SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_SUBPRODUTO, resposta.message || "Falha na operação.", true);
+                }
+            }
+
+            // --- Funções do Modal de Exclusão de SubProduto ---
+            function SubProdutosScript_fecharModalConfirmarExclusaoSubProduto() {
+                document.getElementById(SubProdutosScript_ID_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO).classList.add('hidden');
+                SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO, '', false);
+                const btnConfirmar = document.getElementById(SubProdutosScript_ID_BTN_CONFIRMAR_EXCLUSAO_DEFINITIVA_SUBPRODUTO);
+                if (btnConfirmar) SubProdutosScript_restaurarBotao(btnConfirmar);
+            }
+
+            function SubProdutosScript_iniciarConfirmacaoExclusaoSubProduto(subProdutoId, nomeSubProduto) {
+                SubProdutosScript_subProdutoParaExcluirTemp = { id: subProdutoId, nome: nomeSubProduto };
+                document.getElementById(SubProdutosScript_ID_NOME_SUBPRODUTO_EXCLUIR_MODAL).textContent = nomeSubProduto;
+                document.getElementById(SubProdutosScript_ID_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO).classList.remove('hidden');
+            }
+
+            async function SubProdutosScript_executarExclusaoSubProduto() {
+                const { id } = SubProdutosScript_subProdutoParaExcluirTemp;
+                const btnConfirmar = document.getElementById(SubProdutosScript_ID_BTN_CONFIRMAR_EXCLUSAO_DEFINITIVA_SUBPRODUTO);
+                SubProdutosScript_mostrarLoadingBotao(btnConfirmar, "Excluindo...");
+
+                const response = await SubProdutosScript_callApi('subprodutos/delete-standalone', 'POST', { subProdutoId: id });
+
+                SubProdutosScript_restaurarBotao(btnConfirmar);
+                if (response && response.success) {
+                    SubProdutosScript_fecharModalConfirmarExclusaoSubProduto();
+                    SubProdutosScript_exibirFeedbackGlobal(response.message || "Subproduto excluído!", false);
+                    await SubProdutosScript_carregarListaSubProdutos(1, "");
+                } else {
+                    SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO, (response ? response.message : "Erro desconhecido."), true);
+                }
+            }
+
+            // --- Funções do Modal de Cadastrar Múltiplos SubProdutos ---
+            function SubProdutosScript_fecharModalCadastrarMultiplosSubProdutos() {
+                document.getElementById(SubProdutosScript_ID_MODAL_CADASTRAR_MULTIPLOS_SUBPRODUTOS).classList.add('hidden');
+                document.getElementById(SubProdutosScript_ID_FORM_CADASTRAR_MULTIPLOS_SUBPRODUTOS).reset();
+                document.getElementById(SubProdutosScript_ID_CONTAINER_LINHAS_MULTIPLOS_SUBPRODUTOS).innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Clique em "Adicionar SubProduto" para começar.</p>';
+                SubProdutosScript_contadorLinhasMultiplos = 0;
+                SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_MULTIPLOS_SUBPRODUTOS, '', false);
+                const btnSalvar = document.getElementById(SubProdutosScript_ID_BTN_SALVAR_MODAL_MULTIPLOS_SUBPRODUTOS);
+                if (btnSalvar) SubProdutosScript_restaurarBotao(btnSalvar);
+            }
+
+            async function SubProdutosScript_abrirModalCadastrarMultiplosSubProdutos() {
+                await SubProdutosScript_carregarFornecedoresParaDropdown(SubProdutosScript_ID_MULTI_SELECT_FORNECEDOR);
+                if (SubProdutosScript_listaProdutosCache.length === 0) {
+                    await SubProdutosScript_carregarProdutosParaDropdown(null);
+                }
+                document.getElementById(SubProdutosScript_ID_MODAL_CADASTRAR_MULTIPLOS_SUBPRODUTOS).classList.remove('hidden');
+                document.getElementById(SubProdutosScript_ID_MULTI_SELECT_FORNECEDOR).focus();
+            }
+
+            function SubProdutosScript_adicionarLinhaMultiplosSubProdutos() {
+                SubProdutosScript_contadorLinhasMultiplos++;
+                const container = document.getElementById(SubProdutosScript_ID_CONTAINER_LINHAS_MULTIPLOS_SUBPRODUTOS);
+                if (!container) return;
+
+                if (SubProdutosScript_contadorLinhasMultiplos === 1 && container.querySelector('p')) {
+                    container.innerHTML = '';
+                }
+
+                const divLinha = document.createElement('div');
+                divLinha.className = 'p-3 border rounded-md bg-gray-50 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-2 items-end relative';
+                divLinha.id = `SubProdutosScript_linhaMultiplos_${SubProdutosScript_contadorLinhasMultiplos}`;
+
+                divLinha.innerHTML = `
+      <div class="md:col-span-2 lg:col-span-2 xl:col-span-2"> <label for="SubProdutosScript_multiProdutoVinculado_${SubProdutosScript_contadorLinhasMultiplos}" class="block text-xs font-medium text-gray-600 mb-1">Produto Vinculado*</label>
+        <select id="SubProdutosScript_multiProdutoVinculado_${SubProdutosScript_contadorLinhasMultiplos}" data-form-key="ProdutoVinculadoID" required class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+          <option value="">Selecione...</option>
+        </select>
+      </div>
+      <div class="lg:col-span-2 xl:col-span-2"> <label for="SubProdutosScript_multiNome_${SubProdutosScript_contadorLinhasMultiplos}" class="block text-xs font-medium text-gray-600 mb-1">SubProduto*</label>
+        <input type="text" data-form-key="SubProduto" required class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div> <label class="block text-xs font-medium text-gray-600 mb-1">Categoria</label>
+        <input type="text" data-form-key="Categoria" class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm">
+      </div>
+      <div> <label class="block text-xs font-medium text-gray-600 mb-1">Tamanho</label>
+        <input type="text" data-form-key="Tamanho" class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm">
+      </div>
+      <div> <label class="block text-xs font-medium text-gray-600 mb-1">UN*</label>
+        <input type="text" data-form-key="UN" required class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm">
+      </div>
+      <div class="mt-2 md:mt-0"> <label class="block text-xs font-medium text-gray-600 mb-1">Fator</label>
+        <input type="number" data-form-key="Fator" class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm" step="any">
+      </div>
+      <div class="mt-2 md:mt-0"> <label class="block text-xs font-medium text-gray-600 mb-1">NCM</label>
+        <input type="text" data-form-key="NCM" class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm">
+      </div>
+      <div class="mt-2 md:mt-0"> <label class="block text-xs font-medium text-gray-600 mb-1">CST</label>
+        <input type="text" data-form-key="CST" class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm">
+      </div>
+      <div class="mt-2 md:mt-0"> <label class="block text-xs font-medium text-gray-600 mb-1">CFOP</label>
+        <input type="text" data-form-key="CFOP" class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm">
+      </div>
+      <div class="flex items-end mt-2 md:mt-0"> <select data-form-key="Status" class="w-full p-1.5 border border-gray-300 rounded-md shadow-sm text-sm">
+          <option value="Ativo" selected>Ativo</option>
+          <option value="Inativo">Inativo</option>
+          <option value="Bloqueado">Bloqueado</option>
+        </select>
+      </div>
+    `;
+
+                const btnRemover = document.createElement('button');
+                btnRemover.type = 'button';
+                btnRemover.innerHTML = '&times;';
+                btnRemover.className = 'absolute top-1 right-1 text-red-500 hover:text-red-700 font-bold text-lg p-1 leading-none';
+                btnRemover.title = 'Remover esta linha';
+                btnRemover.onclick = function () { SubProdutosScript_removerLinhaMultiplosSubProdutos(divLinha.id); };
+                divLinha.appendChild(btnRemover);
+
+                container.appendChild(divLinha);
+
+                const selectProdutoLinha = document.getElementById(`SubProdutosScript_multiProdutoVinculado_${SubProdutosScript_contadorLinhasMultiplos}`);
+                if (selectProdutoLinha) {
+                    SubProdutosScript_popularDropdown(selectProdutoLinha, SubProdutosScript_listaProdutosCache, 'Selecione Produto*', null, 'ID', 'Produto');
+                }
+
+                document.getElementById(SubProdutosScript_ID_BTN_SALVAR_MODAL_MULTIPLOS_SUBPRODUTOS).disabled = false;
+                if (selectProdutoLinha) selectProdutoLinha.focus();
+            }
+
+            function SubProdutosScript_removerLinhaMultiplosSubProdutos(linhaId) {
+                const linhaParaRemover = document.getElementById(linhaId);
+                if (linhaParaRemover) linhaParaRemover.remove();
+                const containerLinhas = document.getElementById(SubProdutosScript_ID_CONTAINER_LINHAS_MULTIPLOS_SUBPRODUTOS);
+                if (containerLinhas && containerLinhas.children.length === 0) {
+                    containerLinhas.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Clique em "Adicionar SubProduto" para começar.</p>';
+                    document.getElementById(SubProdutosScript_ID_BTN_SALVAR_MODAL_MULTIPLOS_SUBPRODUTOS).disabled = true;
+                }
+            }
+
+            async function SubProdutosScript_submeterFormularioMultiplosSubProdutos(event) {
+                event.preventDefault();
+                const btnSalvar = document.getElementById(SubProdutosScript_ID_BTN_SALVAR_MODAL_MULTIPLOS_SUBPRODUTOS);
+                SubProdutosScript_mostrarLoadingBotao(btnSalvar, "Salvando Todos...");
+
+                const form = document.getElementById(SubProdutosScript_ID_FORM_CADASTRAR_MULTIPLOS_SUBPRODUTOS);
+                const dadosParaEnvio = {
+                    fornecedorGlobal: form.elements['fornecedorGlobal'].value,
+                    subProdutos: []
+                };
+
+                const linhas = document.querySelectorAll(`#${SubProdutosScript_ID_CONTAINER_LINHAS_MULTIPLOS_SUBPRODUTOS} > div[id^="SubProdutosScript_linhaMultiplos_"]`);
+                if (linhas.length === 0) {
+                    SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_MULTIPLOS_SUBPRODUTOS, 'Adicione pelo menos um subproduto.', true);
+                    SubProdutosScript_restaurarBotao(btnSalvar);
+                    return;
+                }
+
+                let formValido = true;
+                linhas.forEach(linha => {
+                    const subProduto = {};
+                    const inputs = linha.querySelectorAll('input, select');
+                    inputs.forEach(input => {
+                        if (input.required && !input.value) {
+                            formValido = false;
+                            input.classList.add('border-red-500');
+                        } else {
+                            input.classList.remove('border-red-500');
+                        }
+                        if (input.dataset.formKey) {
+                            subProduto[input.dataset.formKey] = input.value;
+                        }
+                    });
+                    if (Object.keys(subProduto).length > 0) {
+                        dadosParaEnvio.subProdutos.push(subProduto);
+                    }
+                });
+
+                if (!formValido) {
+                    SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_MULTIPLOS_SUBPRODUTOS, 'Preencha todos os campos obrigatórios (*).', true);
+                    SubProdutosScript_restaurarBotao(btnSalvar);
+                    return;
+                }
+
+                const resposta = await SubProdutosScript_callApi('subprodutos/create-multiple', 'POST', dadosParaEnvio);
+
+                SubProdutosScript_restaurarBotao(btnSalvar);
+                if (resposta.success) {
+                    SubProdutosScript_fecharModalCadastrarMultiplosSubProdutos();
+                    SubProdutosScript_exibirFeedbackGlobal(resposta.message || "Subprodutos cadastrados em lote!", false);
+                    await SubProdutosScript_carregarListaSubProdutos(1, "");
+                } else {
+                    SubProdutosScript_exibirMensagemEmModal(SubProdutosScript_ID_MENSAGEM_ERRO_MODAL_MULTIPLOS_SUBPRODUTOS, resposta.message || "Falha ao cadastrar em lote.", true);
+                }
+            }
+
+            // --- Funções de Renderização da Tabela e Paginação ---
+            function SubProdutosScript_renderizarControlesPaginacao(totalItens, paginaAtual, totalPaginas) {
+                const controlesDiv = document.getElementById(SubProdutosScript_ID_CONTROLES_PAGINACAO);
+                controlesDiv.innerHTML = '';
+                if (totalItens === 0) {
+                    controlesDiv.innerHTML = `<span class="text-sm text-gray-500">${SubProdutosScript_termoBuscaAtual ? `0 resultados para "${SubProdutosScript_termoBuscaAtual}"` : 'Nenhum subproduto cadastrado.'}</span>`;
+                    return;
+                }
+                const inicio = (paginaAtual - 1) * SUBPRODUTOS_SCRIPT_ITENS_POR_PAGINA + 1;
+                const fim = Math.min(paginaAtual * SUBPRODUTOS_SCRIPT_ITENS_POR_PAGINA, totalItens);
+
+                controlesDiv.innerHTML = `
+        <div class="text-sm text-gray-700">
+            Mostrando <span class="font-medium">${inicio}</span> a <span class="font-medium">${fim}</span> de <span class="font-medium">${totalItens}</span> resultados
+        </div>
+        <div class="inline-flex items-center gap-x-2">
+            <button id="btnAnterior" class="btn-paginacao" ${paginaAtual <= 1 ? 'disabled' : ''}>Anterior</button>
+            <span class="text-sm px-2">Pág ${paginaAtual} de ${totalPaginas}</span>
+            <button id="btnProximo" class="btn-paginacao" ${paginaAtual >= totalPaginas ? 'disabled' : ''}>Próximo</button>
+        </div>
+    `;
+                document.getElementById('btnAnterior').onclick = () => SubProdutosScript_carregarListaSubProdutos(paginaAtual - 1, SubProdutosScript_termoBuscaAtual);
+                document.getElementById('btnProximo').onclick = () => SubProdutosScript_carregarListaSubProdutos(paginaAtual + 1, SubProdutosScript_termoBuscaAtual);
+            }
+
+            function SubProdutosScript_processarDadosServidor(resultadoServidor) {
+                const tabelaEl = document.getElementById(SubProdutosScript_ID_TABELA_SUBPRODUTOS);
+                const thead = tabelaEl.querySelector('thead');
+                const tbody = tabelaEl.querySelector('tbody');
+                thead.innerHTML = '';
+                tbody.innerHTML = '';
+
+                if (resultadoServidor.error) {
+                    const errorMsg = resultadoServidor.message || "Falha ao carregar dados.";
+                    SubProdutosScript_exibirFeedbackGlobal(`Erro: ${errorMsg}`, true);
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-red-500">Erro: ${errorMsg}</td></tr>`;
+                    return;
+                }
+
+                SubProdutosScript_cabecalhosParaExibicaoGlobal = resultadoServidor.cabecalhosParaExibicao || [];
+                const subProdutosDaPagina = resultadoServidor.subProdutosPaginados || [];
+
+                const cabecalhoRow = thead.insertRow();
+                SubProdutosScript_cabecalhosParaExibicaoGlobal.forEach(textoCabecalho => {
+                    const th = document.createElement('th');
+                    th.className = 'px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-normal';
+                    th.textContent = textoCabecalho;
+                    cabecalhoRow.appendChild(th);
+                });
+
+                if (subProdutosDaPagina.length > 0) {
+                    subProdutosDaPagina.forEach(subProdutoObj => {
+                        const tr = tbody.insertRow();
+                        tr.addEventListener('click', function () {
+                            if (SubProdutosScript_linhaSelecionadaAnterior) SubProdutosScript_linhaSelecionadaAnterior.classList.remove('linha-selecionada');
+                            if (SubProdutosScript_subProdutoSelecionadoId === subProdutoObj.ID) {
+                                SubProdutosScript_subProdutoSelecionadoId = null;
+                                SubProdutosScript_subProdutoSelecionadoNome = null;
+                                SubProdutosScript_subProdutoSelecionadoObjeto = null;
+                                SubProdutosScript_linhaSelecionadaAnterior = null;
+                            } else {
+                                this.classList.add('linha-selecionada');
+                                SubProdutosScript_subProdutoSelecionadoId = subProdutoObj.ID;
+                                SubProdutosScript_subProdutoSelecionadoNome = subProdutoObj.SubProduto;
+                                SubProdutosScript_subProdutoSelecionadoObjeto = subProdutoObj;
+                                SubProdutosScript_linhaSelecionadaAnterior = this;
+                            }
+                            SubProdutosScript_atualizarEstadoBotoesPainelAcoes();
+                        });
+
+                        SubProdutosScript_cabecalhosParaExibicaoGlobal.forEach(nomeCabecalho => {
+                            const td = tr.insertCell();
+                            td.className = 'px-4 py-3 text-sm text-gray-700 border-b border-gray-200 whitespace-normal break-words';
+                            td.textContent = subProdutoObj[nomeCabecalho] || '';
+                        });
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="${SubProdutosScript_cabecalhosParaExibicaoGlobal.length || 1}" class="text-center p-8 text-gray-500">${SubProdutosScript_termoBuscaAtual ? `Nenhum subproduto para "${SubProdutosScript_termoBuscaAtual}".` : 'Nenhum subproduto cadastrado.'}</td></tr>`;
+                }
+
+                SubProdutosScript_paginaAtual = resultadoServidor.paginaAtual;
+                SubProdutosScript_renderizarControlesPaginacao(resultadoServidor.totalItens, resultadoServidor.paginaAtual, resultadoServidor.totalPaginas);
+
+                SubProdutosScript_subProdutoSelecionadoId = null;
+                SubProdutosScript_subProdutoSelecionadoNome = null;
+                SubProdutosScript_subProdutoSelecionadoObjeto = null;
+                SubProdutosScript_atualizarEstadoBotoesPainelAcoes();
+            }
+
+            async function SubProdutosScript_carregarListaSubProdutos(pagina = 1, termoBusca = "") {
+                console.log(`Carregando subprodutos: Pág ${pagina}, Busca: "${termoBusca}"`);
+                SubProdutosScript_paginaAtual = pagina;
+                SubProdutosScript_termoBuscaAtual = termoBusca;
+
+                const tbody = document.querySelector(`#${SubProdutosScript_ID_TABELA_SUBPRODUTOS} tbody`);
+                if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-gray-500"><svg class="animate-spin h-6 w-6 text-blue-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></td></tr>`;
+
+                const options = { pagina, itensPorPagina: SUBPRODUTOS_SCRIPT_ITENS_POR_PAGINA, termoBusca };
+                const resultadoServidor = await SubProdutosScript_callApi('subprodutos/list', 'POST', options);
+                SubProdutosScript_processarDadosServidor(resultadoServidor);
+            }
+
+            // --- Inicialização e Listeners Globais ---
+            function SubProdutosScript_anexarListenersGlobais() {
+                const anexar = (id, evento, callback) => {
+                    const el = document.getElementById(id);
+                    if (el && !el.dataset.listenerAttached) {
+                        el.addEventListener(evento, callback);
+                        el.dataset.listenerAttached = 'true';
+                    }
+                };
+
+                anexar(SubProdutosScript_ID_CAMPO_BUSCA, 'input', function () {
+                    clearTimeout(SubProdutosScript_debounceTimerBusca);
+                    const termo = this.value;
+                    SubProdutosScript_debounceTimerBusca = setTimeout(() => { SubProdutosScript_carregarListaSubProdutos(1, termo); }, 500);
+                });
+
+                anexar(SubProdutosScript_ID_BTN_NOVO_SUBPRODUTO_GLOBAL, 'click', SubProdutosScript_abrirModalParaCriarSubProduto);
+                anexar(SubProdutosScript_ID_BTN_CADASTRAR_MULTIPLOS_GLOBAL, 'click', SubProdutosScript_abrirModalCadastrarMultiplosSubProdutos);
+
+                anexar(SubProdutosScript_ID_BTN_EDITAR_GLOBAL, 'click', () => {
+                    if (SubProdutosScript_subProdutoSelecionadoObjeto) {
+                        SubProdutosScript_abrirModalParaEditarSubProduto(SubProdutosScript_subProdutoSelecionadoObjeto);
+                    } else {
+                        SubProdutosScript_exibirFeedbackGlobal("Nenhum subproduto selecionado para editar.", true);
+                    }
+                });
+
+                anexar(SubProdutosScript_ID_BTN_EXCLUIR_GLOBAL, 'click', () => {
+                    if (SubProdutosScript_subProdutoSelecionadoId && SubProdutosScript_subProdutoSelecionadoNome) {
+                        SubProdutosScript_iniciarConfirmacaoExclusaoSubProduto(SubProdutosScript_subProdutoSelecionadoId, SubProdutosScript_subProdutoSelecionadoNome);
+                    } else {
+                        SubProdutosScript_exibirFeedbackGlobal("Nenhum subproduto selecionado para excluir.", true);
+                    }
+                });
+
+                // Modais
+                anexar(SubProdutosScript_ID_BTN_FECHAR_MODAL_SUBPRODUTO, 'click', SubProdutosScript_fecharModalSubProduto);
+                anexar(SubProdutosScript_ID_BTN_CANCELAR_MODAL_SUBPRODUTO, 'click', SubProdutosScript_fecharModalSubProduto);
+                anexar(SubProdutosScript_ID_FORM_SUBPRODUTO, 'submit', SubProdutosScript_submeterFormularioSubProduto);
+
+                anexar(SubProdutosScript_ID_BTN_FECHAR_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO, 'click', SubProdutosScript_fecharModalConfirmarExclusaoSubProduto);
+                anexar(SubProdutosScript_ID_BTN_CANCELAR_MODAL_CONFIRMAR_EXCLUSAO_SUBPRODUTO, 'click', SubProdutosScript_fecharModalConfirmarExclusaoSubProduto);
+                anexar(SubProdutosScript_ID_BTN_CONFIRMAR_EXCLUSAO_DEFINITIVA_SUBPRODUTO, 'click', SubProdutosScript_executarExclusaoSubProduto);
+
+                anexar(SubProdutosScript_ID_BTN_FECHAR_MODAL_CADASTRAR_MULTIPLOS_SUBPRODUTOS, 'click', SubProdutosScript_fecharModalCadastrarMultiplosSubProdutos);
+                anexar(SubProdutosScript_ID_BTN_CANCELAR_MODAL_MULTIPLOS_SUBPRODUTOS, 'click', SubProdutosScript_fecharModalCadastrarMultiplosSubProdutos);
+                anexar(SubProdutosScript_ID_FORM_CADASTRAR_MULTIPLOS_SUBPRODUTOS, 'submit', SubProdutosScript_submeterFormularioMultiplosSubProdutos);
+                anexar(SubProdutosScript_ID_BTN_ADICIONAR_LINHA_MULTIPLOS, 'click', SubProdutosScript_adicionarLinhaMultiplosSubProdutos);
+            }
+
+            // --- Ponto de Entrada ---
+            SubProdutosScript_anexarListenersGlobais();
+            SubProdutosScript_carregarListaSubProdutos(1);
+            SubProdutosScript_atualizarEstadoBotoesPainelAcoes();
+
+            console.log("SubProdutosScript inicializado para Firebase.");
+        })();
+    </script>
+</body>
+
+</html>

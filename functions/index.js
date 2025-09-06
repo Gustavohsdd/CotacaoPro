@@ -9,6 +9,7 @@ import cors from "cors";
 // Importa os roteadores dos módulos
 import { fornecedoresRouter } from "./fornecedores.js";
 import { produtosRouter } from "./produtos.js";
+import { subProdutosRouter } from "./subprodutos.js"; // Adicionado
 
 // Inicializa o Firebase Admin SDK
 admin.initializeApp();
@@ -30,6 +31,7 @@ app.use(express.json());
 // agora estarão disponíveis sob o prefixo /api
 app.use('/api', fornecedoresRouter);
 app.use('/api', produtosRouter);
+app.use('/api', subProdutosRouter); // Adicionado
 
 
 // Exporta a aplicação Express como uma única Cloud Function chamada "api"
