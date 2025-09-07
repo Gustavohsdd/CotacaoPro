@@ -10,7 +10,6 @@ import cors from "cors";
 import { fornecedoresRouter } from "./modules/fornecedores.js";
 import { produtosRouter } from "./modules/produtos.js";
 import { subProdutosRouter } from "./modules/subprodutos.js";
-import { importerRouter } from "./modules/importer.js";
 
 // Inicializa o Firebase Admin SDK
 admin.initializeApp();
@@ -33,7 +32,6 @@ app.use(express.json());
 app.use('/api', fornecedoresRouter);
 app.use('/api', produtosRouter);
 app.use('/api', subProdutosRouter);
-app.use('/api', importerRouter);
 
 
 // Exporta a aplicação Express como uma única Cloud Function chamada "api"
