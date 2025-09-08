@@ -1,40 +1,39 @@
 // functions/subprodutos.js
 import { Router } from "express";
 import logger from "firebase-functions/logger";
+import admin from "firebase-admin";
+import { google } from "googleapis";
 
 export const subProdutosRouter = Router();
 
-// --- DADOS MOCADOS (SUBSTITUTOS PARA A PLANILHA) ---
-// Simula as informações das planilhas "SubProdutos", "Produtos" e "Fornecedores"
+// --- CONSTANTES DE CONFIGURAÇÃO ---
+const SPREADSHEET_ID = '1CFbP6_VC4TOJXITwO-nvxu6IX1brAYJNUCaRW0VDXDY';
+const SHEET_NAME = 'SubProdutos'; // Nome exato da aba na sua planilha
+
+// --- DADOS MOCADOS (USADOS PELAS FUNÇÕES ANTIGAS) ---
 let mockSubProdutos = [
     { "Data de Cadastro": "05/05/2025 10:00:00", "ID": "101", "ID_SubProduto": "101", "SubProduto": "COCA-COLA 2L", "Produto Vinculado": "REFRIGERANTE", "Fornecedor": "Distribuidora Alfa", "Categoria": "BEBIDAS", "Tamanho": "2L", "UN": "UN", "Fator": "1", "NCM": "22021000", "CST": "0102", "CFOP": "5102", "Status": "Ativo" },
     { "Data de Cadastro": "05/05/2025 11:00:00", "ID": "102", "ID_SubProduto": "102", "SubProduto": "GUARANÁ ANTARCTICA 2L", "Produto Vinculado": "REFRIGERANTE", "Fornecedor": "Distribuidora Alfa", "Categoria": "BEBIDAS", "Tamanho": "2L", "UN": "UN", "Fator": "1", "NCM": "22021000", "CST": "0102", "CFOP": "5102", "Status": "Ativo" },
     { "Data de Cadastro": "06/05/2025 14:30:00", "ID": "103", "ID_SubProduto": "103", "SubProduto": "ARROZ TIO JOÃO 5KG", "Produto Vinculado": "ARROZ AGULHINHA T1", "Fornecedor": "Mercearia Beta", "Categoria": "CESTA BÁSICA", "Tamanho": "5KG", "UN": "PCT", "Fator": "1", "NCM": "10063021", "CST": "0102", "CFOP": "5102", "Status": "Ativo" },
     { "Data de Cadastro": "07/05/2025 09:00:00", "ID": "104", "ID_SubProduto": "104", "SubProduto": "LEITE PARMALAT 1L", "Produto Vinculado": "LEITE INTEGRAL", "Fornecedor": "Frios Gama", "Categoria": "LATICINIOS", "Tamanho": "1L", "UN": "L", "Fator": "1", "NCM": "04012010", "CST": "0102", "CFOP": "5102", "Status": "Inativo" },
 ];
-
 let mockProdutos = [
     { ID: "1", Produto: "REFRIGERANTE" },
     { ID: "2", Produto: "ARROZ AGULHINHA T1" },
     { ID: "3", Produto: "LEITE INTEGRAL" },
     { ID: "4", Produto: "CAFÉ TORRADO E MOÍDO" },
 ];
-
 let mockFornecedores = [
     { ID: "1", Fornecedor: "Distribuidora Alfa" },
     { ID: "2", Fornecedor: "Mercearia Beta" },
     { ID: "3", Fornecedor: "Frios Gama" },
 ];
-
 let proximoIdSubProduto = 105;
 
 // --- Funções Utilitárias ---
 
 /**
  * Normaliza o texto para comparação: remove acentos, converte para minúsculas e remove espaços extras.
- * Substitui: SubProdutosController_normalizarTextoComparacao e SubProdutosCRUD_normalizarTextoComparacao
- * @param {string} texto O texto a ser normalizado.
- * @return {string} O texto normalizado.
  */
 function subProdutos_normalizarTextoComparacao(texto) {
     if (!texto || typeof texto !== 'string') return "";
@@ -43,9 +42,6 @@ function subProdutos_normalizarTextoComparacao(texto) {
 
 /**
  * Obtém o nome de um produto pelo seu ID a partir dos dados mocados.
- * Substitui: SubProdutosCRUD_obterNomeProdutoPorId
- * @param {string} produtoId O ID do produto.
- * @return {string|null} O nome do produto ou null se não encontrado.
  */
 function subProdutos_obterNomeProdutoPorId(produtoId) {
     if (!produtoId) return null;
@@ -55,9 +51,6 @@ function subProdutos_obterNomeProdutoPorId(produtoId) {
 
 /**
  * Obtém o nome de um fornecedor pelo seu ID a partir dos dados mocados.
- * Substitui: SubProdutosCRUD_obterNomeFornecedorPorId
- * @param {string} fornecedorId O ID do fornecedor.
- * @return {string|null} O nome do fornecedor ou null se não encontrado.
  */
 function subProdutos_obterNomeFornecedorPorId(fornecedorId) {
     if (!fornecedorId) return null;
@@ -65,12 +58,73 @@ function subProdutos_obterNomeFornecedorPorId(fornecedorId) {
     return fornecedor ? fornecedor.Fornecedor : null;
 }
 
+/**
+ * Função utilitária para converter dados da planilha (array de arrays) para um array de objetos.
+ */
+function subprodutos_convertSheetDataToObject(data) {
+    const headers = data[0];
+    const rows = data.slice(1);
+    return rows.map(row => {
+        const obj = {};
+        headers.forEach((header, index) => {
+            obj[header] = row[index] || "";
+        });
+        return obj;
+    });
+}
 
 // --- ROTAS DO MÓDULO SUBPRODUTOS ---
 
 /**
+ * Rota para importar dados de subprodutos DIRETO DO GOOGLE SHEETS para o Firestore.
+ */
+subProdutosRouter.post('/subprodutos/import', async (req, res) => {
+    logger.info(`API: Recebida requisição para importar subprodutos da planilha: ${SHEET_NAME}`);
+    try {
+        const auth = new google.auth.GoogleAuth({
+            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEET_NAME}`,
+        });
+
+        const data = response.data.values;
+        if (!data || data.length === 0) {
+            logger.warn("Nenhum dado encontrado na planilha de subprodutos.");
+            return res.status(404).json({ success: false, message: "Nenhum dado encontrado na planilha." });
+        }
+
+        const subprodutos = subprodutos_convertSheetDataToObject(data);
+
+        const db = admin.firestore();
+        const batch = db.batch();
+        
+        let count = 0;
+        subprodutos.forEach((subproduto) => {
+            if (subproduto.ID) {
+                const docRef = db.collection('subprodutos').doc(String(subproduto.ID));
+                batch.set(docRef, subproduto);
+                count++;
+            }
+        });
+
+        await batch.commit();
+
+        logger.info(`API: ${count} subprodutos importados com sucesso.`);
+        res.status(200).json({ success: true, message: `${count} subprodutos importados com sucesso!` });
+
+    } catch (e) {
+        logger.error("Erro ao importar subprodutos do Google Sheets:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+
+/**
  * Rota para obter a lista de subprodutos de forma paginada e com filtro.
- * Substitui: SubProdutosController_obterListaSubProdutosPaginada
  */
 subProdutosRouter.post('/subprodutos/list', (req, res) => {
     logger.info("API: Recebida requisição para listar subprodutos", { body: req.body });
@@ -107,25 +161,22 @@ subProdutosRouter.post('/subprodutos/list', (req, res) => {
 
 /**
  * Rota para criar um novo subproduto.
- * Substitui: SubProdutosCRUD_criarNovoSubProduto
  */
 subProdutosRouter.post('/subprodutos/create-standalone', (req, res) => {
     logger.info("API: Recebida requisição para criar subproduto (standalone)", { body: req.body });
     try {
         const dadosNovoSubProduto = req.body;
 
-        // Validação de campos obrigatórios
         if (!dadosNovoSubProduto || !dadosNovoSubProduto["SubProduto"]) {
             return res.status(400).json({ success: false, message: "O campo 'SubProduto' é obrigatório." });
         }
-        if (!dadosNovoSubProduto["Produto Vinculado"]) { // No formulário, "Produto Vinculado" virá como o ID
+        if (!dadosNovoSubProduto["Produto Vinculado"]) {
             return res.status(400).json({ success: false, message: "O campo 'Produto Vinculado' é obrigatório." });
         }
         if (!dadosNovoSubProduto["UN"]) {
             return res.status(400).json({ success: false, message: "O campo 'UN' é obrigatório." });
         }
 
-        // Converte IDs em Nomes antes de salvar e validar
         const nomeProdutoVinculado = subProdutos_obterNomeProdutoPorId(dadosNovoSubProduto["Produto Vinculado"]);
         if (!nomeProdutoVinculado) {
             return res.status(400).json({ success: false, message: `Produto Vinculado com ID '${dadosNovoSubProduto["Produto Vinculado"]}' não encontrado.` });
@@ -139,7 +190,6 @@ subProdutosRouter.post('/subprodutos/create-standalone', (req, res) => {
             }
         }
 
-        // Validação de duplicidade
         const nomeNovoSubProdutoNormalizado = subProdutos_normalizarTextoComparacao(dadosNovoSubProduto.SubProduto);
         const nomeProdutoVinculadoNormalizado = subProdutos_normalizarTextoComparacao(nomeProdutoVinculado);
 
@@ -158,8 +208,8 @@ subProdutosRouter.post('/subprodutos/create-standalone', (req, res) => {
             "Data de Cadastro": new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
             "ID": novoId,
             "ID_SubProduto": novoId,
-            "Produto Vinculado": nomeProdutoVinculado, // Salva o nome
-            "Fornecedor": nomeFornecedor || "" // Salva o nome
+            "Produto Vinculado": nomeProdutoVinculado,
+            "Fornecedor": nomeFornecedor || ""
         };
 
         mockSubProdutos.push(novoSubProduto);
@@ -173,7 +223,6 @@ subProdutosRouter.post('/subprodutos/create-standalone', (req, res) => {
 
 /**
  * Rota para atualizar um subproduto existente.
- * Substitui: SubProdutosCRUD_atualizarSubProduto
  */
 subProdutosRouter.post('/subprodutos/update-standalone', (req, res) => {
     logger.info("API: Recebida requisição para atualizar subproduto (standalone)", { body: req.body });
@@ -190,7 +239,6 @@ subProdutosRouter.post('/subprodutos/update-standalone', (req, res) => {
             return res.status(404).json({ success: false, message: `Subproduto com ID '${ID}' não encontrado.` });
         }
 
-        // Converte IDs em Nomes antes de salvar e validar
         const nomeProdutoVinculado = subProdutos_obterNomeProdutoPorId(dadosParaAtualizar["Produto Vinculado"]);
         if (!nomeProdutoVinculado) {
             return res.status(400).json({ success: false, message: `Produto Vinculado com ID '${dadosParaAtualizar["Produto Vinculado"]}' não encontrado.` });
@@ -204,7 +252,6 @@ subProdutosRouter.post('/subprodutos/update-standalone', (req, res) => {
             }
         }
 
-        // Validação de duplicidade
         const nomeSubProdutoAtualizadoNormalizado = subProdutos_normalizarTextoComparacao(dadosParaAtualizar.SubProduto);
         const nomeProdutoVinculadoNormalizado = subProdutos_normalizarTextoComparacao(nomeProdutoVinculado);
 
@@ -218,12 +265,11 @@ subProdutosRouter.post('/subprodutos/update-standalone', (req, res) => {
             return res.status(409).json({ success: false, message: `O subproduto '${dadosParaAtualizar.SubProduto}' já está cadastrado para o produto '${nomeProdutoVinculado}'.` });
         }
 
-        // Monta o objeto atualizado
         const subProdutoAtualizado = {
-            ...mockSubProdutos[index], // Mantém os dados antigos
-            ...dadosParaAtualizar,     // Sobrescreve com os novos dados
-            "Produto Vinculado": nomeProdutoVinculado, // Garante que o nome seja salvo
-            "Fornecedor": nomeFornecedor || ""       // Garante que o nome seja salvo
+            ...mockSubProdutos[index],
+            ...dadosParaAtualizar,
+            "Produto Vinculado": nomeProdutoVinculado,
+            "Fornecedor": nomeFornecedor || ""
         };
 
         mockSubProdutos[index] = subProdutoAtualizado;
@@ -237,7 +283,6 @@ subProdutosRouter.post('/subprodutos/update-standalone', (req, res) => {
 
 /**
  * Rota para excluir um subproduto.
- * Substitui: SubProdutosCRUD_excluirSubProduto
  */
 subProdutosRouter.post('/subprodutos/delete-standalone', (req, res) => {
     logger.info("API: Recebida requisição para excluir subproduto (standalone)", { body: req.body });
@@ -263,7 +308,6 @@ subProdutosRouter.post('/subprodutos/delete-standalone', (req, res) => {
 
 /**
  * Rota para cadastrar múltiplos subprodutos de uma vez.
- * Substitui: SubProdutosCRUD_cadastrarMultiplosSubProdutos
  */
 subProdutosRouter.post('/subprodutos/create-multiple', (req, res) => {
     logger.info("API: Recebida requisição para cadastrar múltiplos subprodutos", { body: req.body });
@@ -301,7 +345,6 @@ subProdutosRouter.post('/subprodutos/create-multiple', (req, res) => {
             const nomeSubProdutoNormalizado = subProdutos_normalizarTextoComparacao(sub.SubProduto);
             const nomeProdutoVinculadoNormalizado = subProdutos_normalizarTextoComparacao(nomeProdutoVinculado);
 
-            // Valida duplicidade contra o mock existente E contra as novas linhas já processadas
             const duplicadoExistente = mockSubProdutos.some(sp => subProdutos_normalizarTextoComparacao(sp.SubProduto) === nomeSubProdutoNormalizado && subProdutos_normalizarTextoComparacao(sp["Produto Vinculado"]) === nomeProdutoVinculadoNormalizado);
             const duplicadoNoLote = novasLinhasParaAdicionar.some(nl => subProdutos_normalizarTextoComparacao(nl.SubProduto) === nomeSubProdutoNormalizado && subProdutos_normalizarTextoComparacao(nl["Produto Vinculado"]) === nomeProdutoVinculadoNormalizado);
 
@@ -319,14 +362,13 @@ subProdutosRouter.post('/subprodutos/create-multiple', (req, res) => {
                 "Produto Vinculado": nomeProdutoVinculado,
                 "Fornecedor": nomeFornecedorGlobal || "",
             };
-            delete novoSubProduto.ProdutoVinculadoID; // Remove a chave temporária
+            delete novoSubProduto.ProdutoVinculadoID;
 
             novasLinhasParaAdicionar.push(novoSubProduto);
             resultadosDetalhados.push({ nome: sub.SubProduto, status: "Sucesso", id: novoId });
             subProdutosAdicionadosComSucesso++;
         }
 
-        // Adiciona os novos subprodutos ao mock principal
         mockSubProdutos.push(...novasLinhasParaAdicionar);
 
         let mensagemFinal = `${subProdutosAdicionadosComSucesso} de ${subProdutos.length} subprodutos foram processados com sucesso.`;
@@ -345,7 +387,6 @@ subProdutosRouter.post('/subprodutos/create-multiple', (req, res) => {
 
 /**
  * Rota para obter a lista de todos os produtos para dropdowns.
- * Substitui: SubProdutosController_obterTodosProdutosParaDropdown
  */
 subProdutosRouter.get('/subprodutos/list-produtos', (req, res) => {
     logger.info("API: Buscando lista de todos os produtos para dropdown.");
@@ -360,7 +401,6 @@ subProdutosRouter.get('/subprodutos/list-produtos', (req, res) => {
 
 /**
  * Rota para obter a lista de todos os fornecedores para dropdowns.
- * Substitui: SubProdutosController_obterTodosFornecedoresParaDropdown
  */
 subProdutosRouter.get('/subprodutos/list-fornecedores', (req, res) => {
     logger.info("API: Buscando lista de todos os fornecedores para dropdown.");

@@ -1,31 +1,32 @@
-// functions/produtos.js
+// functions/modules/produtos.js
 import { Router } from "express";
 import logger from "firebase-functions/logger";
+import admin from "firebase-admin";
+import { google } from "googleapis";
 
 export const produtosRouter = Router();
 
-// --- DADOS MOCADOS (SUBSTITUTOS PARA A PLANILHA) ---
-// Simula as informações que estariam nas planilhas "Produtos", "SubProdutos" e "Fornecedores"
+// --- CONSTANTES DE CONFIGURAÇÃO ---
+const SPREADSHEET_ID = '1CFbP6_VC4TOJXITwO-nvxu6IX1brAYJNUCaRW0VDXDY';
+const SHEET_NAME = 'Produtos'; // Nome exato da aba na sua planilha
+
+// --- DADOS MOCADOS (USADOS PELAS FUNÇÕES ANTIGAS) ---
 let mockProdutos = [
     { "Data de Cadastro": "2025-01-10 10:00:00", "ID": "1", "Produto": "REFRIGERANTE", "Tamanho": "2L", "UN": "UN", "Categoria": "BEBIDAS", "ABC": "A", "Estoque Minimo": "12", "Status": "Ativo" },
     { "Data de Cadastro": "2025-01-11 11:00:00", "ID": "2", "Produto": "ARROZ AGULHINHA T1", "Tamanho": "5KG", "UN": "PCT", "Categoria": "CESTA BÁSICA", "ABC": "A", "Estoque Minimo": "50", "Status": "Ativo" },
     { "Data de Cadastro": "2025-01-12 12:00:00", "ID": "3", "Produto": "LEITE INTEGRAL", "Tamanho": "1L", "UN": "L", "Categoria": "LATICINIOS", "ABC": "B", "Estoque Minimo": "24", "Status": "Inativo" },
     { "Data de Cadastro": "2025-01-13 13:00:00", "ID": "4", "Produto": "CAFÉ TORRADO E MOÍDO", "Tamanho": "500G", "UN": "PCT", "Categoria": "CESTA BÁSICA", "ABC": "A", "Estoque Minimo": "20", "Status": "Ativo" },
 ];
-
 let mockSubProdutos = [
     { "ID": "101", "SubProduto": "COCA-COLA 2L", "Produto Vinculado": "REFRIGERANTE", "Fornecedor": "Distribuidora Alfa", "Categoria": "BEBIDAS", "Tamanho": "2L", "UN": "UN", "Fator": "1", "NCM": "22021000", "CST": "0102", "CFOP": "5102", "Status": "Ativo", "ID_SubProduto": "101" },
     { "ID": "102", "SubProduto": "GUARANÁ ANTARCTICA 2L", "Produto Vinculado": "REFRIGERANTE", "Fornecedor": "Distribuidora Alfa", "Categoria": "BEBIDAS", "Tamanho": "2L", "UN": "UN", "Fator": "1", "NCM": "22021000", "CST": "0102", "CFOP": "5102", "Status": "Ativo", "ID_SubProduto": "102" },
     { "ID": "103", "SubProduto": "ARROZ TIO JOÃO 5KG", "Produto Vinculado": "ARROZ AGULHINHA T1", "Fornecedor": "Mercearia Beta", "Categoria": "CESTA BÁSICA", "Tamanho": "5KG", "UN": "PCT", "Fator": "1", "NCM": "10063021", "CST": "0102", "CFOP": "5102", "Status": "Ativo", "ID_SubProduto": "103" },
 ];
-
-// Dados dos fornecedores necessários para o modal de subprodutos
 let mockFornecedores = [
     { "ID": "1", "Fornecedor": "Distribuidora Alfa" },
     { "ID": "2", "Fornecedor": "Mercearia Beta" },
     { "ID": "3", "Fornecedor": "Frios Gama" },
 ];
-
 let proximoIdProduto = 5;
 let proximoIdSubProduto = 104;
 
@@ -33,19 +34,79 @@ let proximoIdSubProduto = 104;
 
 /**
  * Normaliza o texto para comparação: remove acentos, converte para minúsculas e remove espaços extras.
- * @param {string} texto O texto a ser normalizado.
- * @return {string} O texto normalizado.
  */
 function produtos_normalizarTextoComparacao(texto) {
   if (!texto || typeof texto !== 'string') return "";
   return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
+/**
+ * Função utilitária para converter dados da planilha (array de arrays) para um array de objetos.
+ */
+function produtos_convertSheetDataToObject(data) {
+    const headers = data[0];
+    const rows = data.slice(1);
+    return rows.map(row => {
+        const obj = {};
+        headers.forEach((header, index) => {
+            obj[header] = row[index] || "";
+        });
+        return obj;
+    });
+}
+
 // --- ROTAS DO MÓDULO PRODUTOS ---
 
 /**
+ * Rota para importar dados de produtos DIRETO DO GOOGLE SHEETS para o Firestore.
+ */
+produtosRouter.post('/produtos/import', async (req, res) => {
+    logger.info(`API: Recebida requisição para importar produtos da planilha: ${SHEET_NAME}`);
+    try {
+        const auth = new google.auth.GoogleAuth({
+            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEET_NAME}`,
+        });
+
+        const data = response.data.values;
+        if (!data || data.length === 0) {
+            logger.warn("Nenhum dado encontrado na planilha de produtos.");
+            return res.status(404).json({ success: false, message: "Nenhum dado encontrado na planilha." });
+        }
+
+        const produtos = produtos_convertSheetDataToObject(data);
+
+        const db = admin.firestore();
+        const batch = db.batch();
+        
+        let count = 0;
+        produtos.forEach((produto) => {
+            if (produto.ID) {
+                const docRef = db.collection('produtos').doc(String(produto.ID));
+                batch.set(docRef, produto);
+                count++;
+            }
+        });
+
+        await batch.commit();
+
+        logger.info(`API: ${count} produtos importados com sucesso.`);
+        res.status(200).json({ success: true, message: `${count} produtos importados com sucesso!` });
+
+    } catch (e) {
+        logger.error("Erro ao importar produtos do Google Sheets:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+
+/**
  * Rota para obter a lista de produtos de forma paginada e com filtro.
- * Combina a lógica de `ProdutosController_obterListaProdutosPaginada`.
  */
 produtosRouter.post('/produtos/list', (req, res) => {
     logger.info("API: Recebida requisição para listar produtos", { body: req.body });
@@ -82,7 +143,6 @@ produtosRouter.post('/produtos/list', (req, res) => {
 
 /**
  * Rota para criar um novo produto.
- * Refatoração de `ProdutosCRUD_criarNovoProduto`.
  */
 produtosRouter.post('/produtos/create', (req, res) => {
     logger.info("API: Recebida requisição para criar produto", { body: req.body });
@@ -101,7 +161,6 @@ produtosRouter.post('/produtos/create', (req, res) => {
 
         const novoId = String(proximoIdProduto++);
         
-        // Remove a propriedade ID vazia vinda do formulário para não sobrescrever o novoId
         delete dadosNovoProduto.ID;
 
         const novoProduto = {
@@ -120,7 +179,6 @@ produtosRouter.post('/produtos/create', (req, res) => {
 
 /**
  * Rota para atualizar um produto existente.
- * Refatoração de `ProdutosCRUD_atualizarProduto`.
  */
 produtosRouter.post('/produtos/update', (req, res) => {
     logger.info("API: Recebida requisição para atualizar produto", { body: req.body });
@@ -139,7 +197,6 @@ produtosRouter.post('/produtos/update', (req, res) => {
         const nomeProdutoAntigo = mockProdutos[index].Produto;
         const nomeNovoProduto = dadosProdutoAtualizar.Produto;
 
-        // Verifica se o novo nome já existe em outro produto
         if (nomeNovoProduto && produtos_normalizarTextoComparacao(nomeProdutoAntigo) !== produtos_normalizarTextoComparacao(nomeNovoProduto)) {
             const outroProdutoComMesmoNome = mockProdutos.find(p => p.ID !== String(ID) && produtos_normalizarTextoComparacao(p.Produto) === produtos_normalizarTextoComparacao(nomeNovoProduto));
             if (outroProdutoComMesmoNome) {
@@ -147,10 +204,8 @@ produtosRouter.post('/produtos/update', (req, res) => {
             }
         }
 
-        // Atualiza o produto
         mockProdutos[index] = { ...mockProdutos[index], ...dadosProdutoAtualizar };
         
-        // Se o nome do produto mudou, atualiza o 'Produto Vinculado' nos subprodutos
         if (nomeNovoProduto && nomeProdutoAntigo !== nomeNovoProduto) {
             mockSubProdutos.forEach(sub => {
                 if (sub["Produto Vinculado"] === nomeProdutoAntigo) {
@@ -168,7 +223,6 @@ produtosRouter.post('/produtos/update', (req, res) => {
 
 /**
  * Rota para obter subprodutos vinculados a um produto.
- * Refatoração de `ProdutosCRUD_obterSubProdutosPorProduto`.
  */
 produtosRouter.post('/produtos/getSubprodutos', (req, res) => {
     const { nomeProduto } = req.body;
@@ -183,7 +237,6 @@ produtosRouter.post('/produtos/getSubprodutos', (req, res) => {
 
 /**
  * Rota para obter outros produtos, exceto o que está sendo excluído.
- * Refatoração de `ProdutosCRUD_obterListaOutrosProdutos`.
  */
 produtosRouter.post('/produtos/getOthers', (req, res) => {
     const { idProdutoExcluido } = req.body;
@@ -196,7 +249,6 @@ produtosRouter.post('/produtos/getOthers', (req, res) => {
 
 /**
  * Rota para obter todos os fornecedores (usado no modal de subprodutos).
- * Refatoração de `ProdutosCRUD_obterListaTodosFornecedores`.
  */
 produtosRouter.get('/produtos/getAllFornecedores', (req, res) => {
     logger.info(`API: Buscando lista de todos os fornecedores.`);
@@ -206,7 +258,6 @@ produtosRouter.get('/produtos/getAllFornecedores', (req, res) => {
 
 /**
  * Rota para processar a exclusão de um produto.
- * Refatoração de `ProdutosCRUD_processarExclusaoProduto`.
  */
 produtosRouter.post('/produtos/delete', (req, res) => {
     const { idProduto, nomeProdutoOriginal, deletarSubprodutosVinculados, realocacoesSubprodutos } = req.body;
@@ -251,7 +302,6 @@ produtosRouter.post('/produtos/delete', (req, res) => {
 
 /**
  * Rota para criar um novo subproduto vinculado a um produto.
- * Refatoração de `ProdutosCRUD_adicionarNovoSubProdutoVinculado`.
  */
 produtosRouter.post('/subprodutos/createLinked', (req, res) => {
     logger.info('API: Criando novo subproduto vinculado', { body: req.body });
@@ -280,7 +330,6 @@ produtosRouter.post('/subprodutos/createLinked', (req, res) => {
 
 /**
  * Rota para atualizar um subproduto vinculado.
- * Refatoração de `ProdutosCRUD_atualizarSubProdutoVinculado`.
  */
 produtosRouter.post('/subprodutos/updateLinked', (req, res) => {
     const dadosSubProdutoAtualizar = req.body;
@@ -296,7 +345,6 @@ produtosRouter.post('/subprodutos/updateLinked', (req, res) => {
         return res.status(404).json({ success: false, message: 'Subproduto não encontrado.' });
     }
 
-    // Preserva campos que não devem ser alterados por este formulário
     const dadosPreservados = {
         "ID": mockSubProdutos[index].ID,
         "ID_SubProduto": mockSubProdutos[index].ID_SubProduto,
@@ -309,8 +357,7 @@ produtosRouter.post('/subprodutos/updateLinked', (req, res) => {
 });
 
 /**
- * Rota para obter detalhes de um subproduto (reutilizada de fornecedores.js, mas pode ser específica se necessário).
- * Substitui `SubProdutosCRUD_obterDetalhesSubProdutoPorId`
+ * Rota para obter detalhes de um subproduto.
  */
 produtosRouter.post('/subprodutos/details', (req, res) => {
     const { subProdutoId } = req.body;
@@ -324,8 +371,7 @@ produtosRouter.post('/subprodutos/details', (req, res) => {
 });
 
 /**
- * Rota para excluir um subproduto (reutilizada de fornecedores.js, mas pode ser específica se necessário).
- * Substitui `SubProdutosCRUD_excluirSubProduto`
+ * Rota para excluir um subproduto.
  */
 produtosRouter.post('/subprodutos/deleteSimple', (req, res) => {
     const { subProdutoId } = req.body;

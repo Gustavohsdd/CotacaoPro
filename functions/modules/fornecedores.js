@@ -1,11 +1,16 @@
-// functions/fornecedores.js
+// functions/modules/fornecedores.js
 import { Router } from "express";
 import logger from "firebase-functions/logger";
+import admin from "firebase-admin";
+import { google } from "googleapis";
 
 export const fornecedoresRouter = Router();
 
-// --- DADOS MOCADOS (SUBSTITUTOS PARA A PLANILHA) ---
-// TODO: Substituir estes dados por chamadas ao Firestore quando o banco de dados for implementado.
+// --- CONSTANTES DE CONFIGURAÇÃO ---
+const SPREADSHEET_ID = '1CFbP6_VC4TOJXITwO-nvxu6IX1brAYJNUCaRW0VDXDY';
+const SHEET_NAME = 'Fornecedores'; // Nome exato da aba na sua planilha
+
+// --- DADOS MOCADOS (USADOS PELAS FUNÇÕES ANTIGAS) ---
 let mockFornecedores = [
     { "Data de Cadastro": "01/01/2025 10:00:00", "ID": "1", "Fornecedor": "Distribuidora Alfa", "CNPJ": "11.111.111/0001-11", "Categoria": "Bebidas", "Vendedor": "Carlos", "Telefone": "(34) 99999-1111", "Email": "carlos@alfa.com", "Dias de Pedido": "Seg, Qua", "Dia de Faturamento": "Sexta", "Dias de Entrega": "3", "Condições de Pagamento": "30 DDL", "Pedido Mínimo (R$)": "500.00", "Regime Tributário": "Simples Nacional", "Contato Financeiro": "financeiro@alfa.com", "Status": "Ativo" },
     { "Data de Cadastro": "02/02/2025 11:30:00", "ID": "2", "Fornecedor": "Mercearia Beta", "CNPJ": "22.222.222/0001-22", "Categoria": "Alimentos Secos", "Vendedor": "Beatriz", "Telefone": "(34) 99999-2222", "Email": "beatriz@beta.com", "Dias de Pedido": "Ter, Qui", "Dia de Faturamento": "Sexta", "Dias de Entrega": "2", "Condições de Pagamento": "15 DDL", "Pedido Mínimo (R$)": "300.00", "Regime Tributário": "Lucro Presumido", "Contato Financeiro": "financeiro@beta.com", "Status": "Ativo" },
@@ -24,7 +29,74 @@ let mockProdutos = [
 let proximoIdFornecedor = 4;
 let proximoIdSubproduto = 104;
 
+/**
+ * Função utilitária para converter dados da planilha (array de arrays) para um array de objetos.
+ */
+function fornecedores_convertSheetDataToObject(data) {
+    const headers = data[0];
+    const rows = data.slice(1);
+    return rows.map(row => {
+        const obj = {};
+        headers.forEach((header, index) => {
+            obj[header] = row[index] || ""; // Garante que campos vazios se tornem strings vazias
+        });
+        return obj;
+    });
+}
+
 // --- ROTAS DO MÓDULO FORNECEDORES ---
+
+/**
+ * Rota para importar dados de fornecedores DIRETO DO GOOGLE SHEETS para o Firestore.
+ */
+fornecedoresRouter.post('/fornecedores/import', async (req, res) => {
+    logger.info(`API: Recebida requisição para importar fornecedores da planilha: ${SHEET_NAME}`);
+    try {
+        // Autenticação com a API do Google
+        const auth = new google.auth.GoogleAuth({
+            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+
+        // Busca os dados da planilha
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEET_NAME}`, // Pega a aba inteira
+        });
+
+        const data = response.data.values;
+        if (!data || data.length === 0) {
+            logger.warn("Nenhum dado encontrado na planilha de fornecedores.");
+            return res.status(404).json({ success: false, message: "Nenhum dado encontrado na planilha." });
+        }
+
+        const fornecedores = fornecedores_convertSheetDataToObject(data);
+
+        // Salva os dados no Firestore
+        const db = admin.firestore();
+        const batch = db.batch();
+        
+        let count = 0;
+        fornecedores.forEach((fornecedor) => {
+            // Usa a coluna 'ID' como identificador único do documento
+            if (fornecedor.ID) {
+                const docRef = db.collection('fornecedores').doc(String(fornecedor.ID));
+                batch.set(docRef, fornecedor);
+                count++;
+            }
+        });
+
+        await batch.commit();
+
+        logger.info(`API: ${count} fornecedores importados com sucesso.`);
+        res.status(200).json({ success: true, message: `${count} fornecedores importados com sucesso!` });
+
+    } catch (e) {
+        logger.error("Erro ao importar fornecedores do Google Sheets:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
 
 /**
  * Rota para obter dados paginados de fornecedores.
