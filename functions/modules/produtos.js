@@ -3,6 +3,7 @@ import { Router } from "express";
 import logger from "firebase-functions/logger";
 import admin from "firebase-admin";
 import { google } from "googleapis";
+import { createRequire } from 'module';
 
 export const produtosRouter = Router();
 
@@ -10,6 +11,8 @@ export const produtosRouter = Router();
 const SPREADSHEET_ID = '1CFbP6_VC4TOJXITwO-nvxu6IX1brAYJNUCaRW0VDXDY';
 const SHEET_NAME = 'Produtos';
 const FIRESTORE_COLLECTION = 'produtos';
+const require = createRequire(import.meta.url);
+const serviceAccountKey = require('../serviceAccountKey.json');
 
 /**
  * Função utilitária para converter dados da planilha (array de arrays) para um array de objetos.
@@ -37,7 +40,12 @@ function produtos_convertSheetDataToObject(data) {
 produtosRouter.post('/produtos/import', async (req, res) => {
     logger.info(`API: Recebida requisição para importar produtos da planilha: ${SHEET_NAME}`);
     try {
+        // Autenticação explícita com a chave da conta de serviço
         const auth = new google.auth.GoogleAuth({
+            credentials: {
+                client_email: serviceAccountKey.client_email,
+                private_key: serviceAccountKey.private_key,
+            },
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         });
         const sheets = google.sheets({ version: 'v4', auth });
