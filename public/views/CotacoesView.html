@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>Cotações</title>
+  <style>
+    /* Estilos Globais da PaginaPrincipal.html já são aplicados */
+    /* Estilos específicos para esta view, copiados e adaptados de ProdutosView */
+    .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #c5c5c5; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+    /* Estilos para o painel de ações global (copiados de ProdutosView) */
+    .btn-painel-acao {
+      font-size: 0.875rem; /* text-sm */
+      font-weight: 600; /* semibold */
+      padding: 0.5rem 0.75rem; /* py-2 px-3 */
+      border-radius: 0.375rem; /* rounded-md */
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
+      transition: background-color 0.15s ease-in-out, opacity 0.15s ease-in-out;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem; /* gap-x-1.5 */
+      color: white;
+      min-width: 100px; /* Largura mínima para consistência */
+    }
+    .btn-painel-acao svg {
+      width: 1rem; /* w-4 */
+      height: 1rem; /* h-4 */
+    }
+    .btn-painel-acao:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-painel-novo { background-color: #2563eb; /* blue-600 */ }
+    .btn-painel-novo:hover:not(:disabled) { background-color: #1d4ed8; /* blue-700 */ }
+    
+    /* Novo estilo para o botão "Abrir Cotação" */
+    .btn-abrir-cotacao { background-color: #10b981; /* green-500 */ }
+    .btn-abrir-cotacao:hover:not(:disabled) { background-color: #059669; /* green-600 */ }
+
+
+    /* Estilos para o Acordeão (mantidos) */
+    .accordion-item {
+      border: 1px solid #E5E7EB;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      background-color: #FFFFFF;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+    .accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 1rem 1.5rem;
+      background-color: #F9FAFB;
+      border-bottom: 1px solid #E5E7EB;
+      text-align: left;
+      font-weight: 600;
+      color: #1F2937;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
+    }
+    .accordion-header:hover {
+      background-color: #F3F4F6;
+    }
+    .accordion-header.active {
+      background-color: #EFF6FF;
+      color: #1D4ED8;
+    }
+    .accordion-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      transition: transform 0.3s ease-in-out;
+      color: #6B7280;
+    }
+    .accordion-header.active .accordion-icon {
+      transform: rotate(180deg);
+      color: #1D4ED8;
+    }
+    .accordion-content {
+      padding: 1.5rem;
+      border-top: 1px solid #E5E7EB;
+      background-color: #FFFFFF;
+    }
+    .accordion-content.hidden {
+      display: none;
+    }
+
+    /* Estilos para o Item de Resumo da Cotação (MODIFICADO para flex) */
+    .cotacao-summary-item {
+      background-color: #F9FAFB;
+      padding: 1rem; /* p-4 */
+      border-radius: 0.375rem; /* rounded-md */
+      border: 1px solid #E5E7EB; /* gray-200 */
+      margin-bottom: 1rem;
+      transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+      /* Adicionado display flex para alinhar informações e botão */
+      display: flex;
+      justify-content: space-between; /* Espaça informações e botão */
+      align-items: center; /* Alinha verticalmente ao centro */
+      flex-wrap: wrap; /* Permite quebrar linha em telas menores */
+      gap: 0.5rem; /* Espaço entre os itens se quebrar linha */
+    }
+    .cotacao-summary-item:hover {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      border-color: #BFDBFE;
+    }
+    .cotacao-summary-item:last-child {
+      margin-bottom: 0;
+    }
+    .cotacao-info { /* Novo container para as informações textuais */
+        flex-grow: 1; /* Permite que as informações ocupem o espaço disponível */
+    }
+    .cotacao-id {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1E40AF;
+    }
+    .cotacao-data {
+      font-size: 0.75rem;
+      color: #6B7280;
+      margin-top: 0.25rem;
+    }
+    .cotacao-categorias {
+      font-size: 0.75rem;
+      color: #4B5563;
+      margin-top: 0.5rem;
+      font-style: italic;
+    }
+    
+    .no-cotacoes-message {
+      text-align: center;
+      padding: 2rem;
+      color: #6B7280;
+      font-style: italic;
+    }
+
+    .loading-spinner-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      color: #3B82F6;
+    }
+    .loading-spinner-container svg {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Estilos para o Modal Nova Cotação */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal-content {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 600px; 
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+    .modal-title {
+      font-size: 1.5rem; 
+      font-weight: 600; 
+      color: #1f2937; 
+    }
+    .modal-close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #6b7280; 
+    }
+    .modal-body .form-group {
+      margin-bottom: 1.25rem;
+    }
+    .modal-body .form-group label {
+      display: block;
+      font-weight: 500; 
+      color: #374151; 
+      margin-bottom: 0.5rem;
+    }
+    .modal-body select, .modal-body input[type="text"] {
+      width: 100%;
+      padding: 0.5rem 0.75rem; 
+      border: 1px solid #d1d5db; 
+      border-radius: 0.375rem; 
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); 
+    }
+     .modal-body input[type="text"].input-busca { /* Estilo para campos de busca */
+      margin-bottom: 0.75rem; /* Espaço abaixo do campo de busca */
+    }
+    .modal-body .checkbox-group {
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #d1d5db;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      background-color: #f9fafb;
+    }
+    .modal-body .checkbox-group label {
+      display: flex; 
+      align-items: center; 
+      margin-bottom: 0.5rem;
+      font-weight: normal; 
+      color: #374151;
+    }
+    .modal-body .checkbox-group input[type="checkbox"] {
+      margin-right: 0.5rem; 
+      width: auto; 
+    }
+    .modal-footer {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 1rem;
+      margin-top: 1.5rem;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+    .btn-modal-primary {
+      background-color: #2563eb; 
+      color: white;
+    }
+    .btn-modal-primary:hover {
+      background-color: #1d4ed8; 
+    }
+    .btn-modal-secondary {
+      background-color: #e5e7eb; 
+      color: #374151; 
+      border: 1px solid #d1d5db; 
+    }
+    .btn-modal-secondary:hover {
+      background-color: #d1d5db; 
+    }
+    .CotacoesScript_secaoOpcoesCriacao {
+        display: none; 
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed #d1d5db;
+    }
+    .CotacoesScript_secaoOpcoesCriacao.active {
+        display: block; 
+    }
+
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto p-4 md:p-6 lg:p-8">
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+      <h2 class="text-3xl font-bold text-gray-800">Cotações</h2>
+    </div>
+
+    <div id="CotacoesScript_painelAcoesGlobal" class="p-3 bg-gray-100 rounded-lg shadow-md flex flex-wrap items-center gap-2 sm:gap-3">
+      <button id="CotacoesScript_btnNovaCotacaoGlobal" class="btn-painel-acao btn-painel-novo">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v4h4a1 1 0 110 2h-4v4a1 1 0 11-2 0v-4H5a1 1 0 110-2h4V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+        <span>Nova Cotação</span>
+      </button>
+      
+      <button id="CotacoesScript_btnConciliarCotacao" class="btn-painel-acao" style="background-color: #6366f1; color: white;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+        </svg>
+        <span>Conciliar Cotação</span>
+      </button>
+
+      <button id="CotacoesScript_btnAbrirMarcacaoProdutos" class="btn-painel-acao" style="background-color: #f59e0b; color: white;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+          <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
+        </svg>
+        <span>Marcar Recebimento</span>
+      </button>
+    </div>
+
+    <div id="CotacoesScript_mensagemFeedbackGlobal" class="my-4"></div>
+
+    <div id="CotacoesScript_listaStatusCotacoes" class="space-y-4">
+      <!-- IDs foram ajustados para serem compatíveis com JS/CSS -->
+      <div class="accordion-item" data-status="Nova Cotação">
+        <button class="accordion-header" aria-expanded="false" aria-controls="content-nova-cotacao">
+          <span>Nova Cotação</span>
+          <span class="ml-auto mr-2 text-sm font-normal text-gray-500" id="CotacoesScript_count_nova_cotacao">(0)</span>
+          <svg class="accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        <div id="content-nova-cotacao" class="accordion-content hidden"></div>
+      </div>
+      
+      <div class="accordion-item" data-status="Aguardando Preços">
+        <button class="accordion-header" aria-expanded="false" aria-controls="content-aguardando-precos">
+          <span>Aguardando Preços</span>
+          <span class="ml-auto mr-2 text-sm font-normal text-gray-500" id="CotacoesScript_count_aguardando_precos">(0)</span>
+          <svg class="accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        <div id="content-aguardando-precos" class="accordion-content hidden"></div>
+      </div>
+      
+       <div class="accordion-item" data-status="Finalizado">
+        <button class="accordion-header" aria-expanded="false" aria-controls="content-finalizado">
+          <span>Finalizado</span>
+          <span class="ml-auto mr-2 text-sm font-normal text-gray-500" id="CotacoesScript_count_finalizado">(0)</span>
+          <svg class="accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        <div id="content-finalizado" class="accordion-content hidden"></div>
+      </div>
+
+      <div class="accordion-item" data-status="Cancelado">
+        <button class="accordion-header" aria-expanded="false" aria-controls="content-cancelado">
+          <span>Cancelado</span>
+          <span class="ml-auto mr-2 text-sm font-normal text-gray-500" id="CotacoesScript_count_cancelado">(0)</span>
+          <svg class="accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        <div id="content-cancelado" class="accordion-content hidden"></div>
+      </div>
+      <!-- Outros acordeões serão adicionados dinamicamente se existirem outros status -->
+    </div>
+  </div>
+
+  <!-- Modal para Nova Cotação -->
+  <div id="CotacoesScript_modalNovaCotacaoOverlay" class="modal-overlay">
+    <div class="modal-content custom-scrollbar">
+      <div class="modal-header">
+        <h3 class="modal-title">Criar Nova Cotação</h3>
+        <button id="CotacoesScript_btnFecharModalNovaCotacao" class="modal-close-btn" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="CotacoesScript_selectTipoCriacao">Criar cotação por:</label>
+          <select id="CotacoesScript_selectTipoCriacao">
+            <option value="">-- Selecione o tipo --</option>
+            <option value="categoria">Categoria</option>
+            <option value="fornecedor">Fornecedor</option>
+            <option value="curvaABC">Curva ABC</option>
+            <option value="produtoEspecifico">Produto Específico</option>
+          </select>
+        </div>
+
+        <div id="CotacoesScript_secaoOpcoesCategoria" class="CotacoesScript_secaoOpcoesCriacao">
+          <label>Selecione as Categorias:</label>
+          <div id="CotacoesScript_checkboxContainerCategorias" class="checkbox-group"></div>
+        </div>
+
+        <div id="CotacoesScript_secaoOpcoesFornecedor" class="CotacoesScript_secaoOpcoesCriacao">
+          <label for="CotacoesScript_inputBuscaFornecedor">Buscar Fornecedor:</label>
+          <input type="text" id="CotacoesScript_inputBuscaFornecedor" class="input-busca" placeholder="Digite para buscar...">
+          <label>Selecione os Fornecedores:</label>
+          <div id="CotacoesScript_checkboxContainerFornecedores" class="checkbox-group"></div>
+        </div>
+
+        <div id="CotacoesScript_secaoOpcoesCurvaABC" class="CotacoesScript_secaoOpcoesCriacao">
+          <label>Selecione a Curva ABC:</label>
+          <div id="CotacoesScript_radioContainerCurvaABC">
+            <label><input type="radio" name="curvaABC" value="A" class="mr-1"> Curva A</label>
+            <label><input type="radio" name="curvaABC" value="B" class="mr-1"> Curva B</label>
+            <label><input type="radio" name="curvaABC" value="C" class="mr-1"> Curva C</label>
+          </div>
+        </div>
+
+        <div id="CotacoesScript_secaoOpcoesProdutoEspecifico" class="CotacoesScript_secaoOpcoesCriacao">
+          <label for="CotacoesScript_inputBuscaProduto">Buscar Produto:</label>
+          <input type="text" id="CotacoesScript_inputBuscaProduto" class="input-busca" placeholder="Digite para buscar...">
+          <label>Selecione os Produtos:</label>
+          <div id="CotacoesScript_checkboxContainerProdutos" class="checkbox-group"></div>
+        </div>
+        <div id="CotacoesScript_feedbackModal" class="mt-3"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="CotacoesScript_btnCancelarModalNovaCotacao" class="btn-painel-acao btn-modal-secondary">Cancelar</button>
+        <button id="CotacoesScript_btnCriarCotacaoModal" class="btn-painel-acao btn-modal-primary">Criar Cotação</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function initCotacoesScript() {
+  // IDs dos Elementos do DOM
+  const CotacoesScript_ID_LISTA_STATUS_COTACOES = 'CotacoesScript_listaStatusCotacoes';
+  const CotacoesScript_ID_MENSAGEM_FEEDBACK_GLOBAL = 'CotacoesScript_mensagemFeedbackGlobal';
+  const CotacoesScript_ID_BTN_NOVA_COTACAO_GLOBAL = 'CotacoesScript_btnNovaCotacaoGlobal';
+  const CotacoesScript_ID_BTN_CONCILIAR_COTACAO = 'CotacoesScript_btnConciliarCotacao';
+  const CotacoesScript_ID_BTN_ABRIR_MARCACAO_PRODUTOS = 'CotacoesScript_btnAbrirMarcacaoProdutos';
+
+  // IDs do Modal de Nova Cotação
+  const CotacoesScript_ID_MODAL_NOVA_COTACAO_OVERLAY = 'CotacoesScript_modalNovaCotacaoOverlay';
+  const CotacoesScript_ID_BTN_FECHAR_MODAL_NOVA_COTACAO = 'CotacoesScript_btnFecharModalNovaCotacao';
+  const CotacoesScript_ID_BTN_CANCELAR_MODAL_NOVA_COTACAO = 'CotacoesScript_btnCancelarModalNovaCotacao';
+  const CotacoesScript_ID_BTN_CRIAR_COTACAO_MODAL = 'CotacoesScript_btnCriarCotacaoModal';
+  const CotacoesScript_ID_SELECT_TIPO_CRIACAO = 'CotacoesScript_selectTipoCriacao';
+  const CotacoesScript_ID_FEEDBACK_MODAL = 'CotacoesScript_feedbackModal';
+  const CotacoesScript_ID_SECAO_CATEGORIA = 'CotacoesScript_secaoOpcoesCategoria';
+  const CotacoesScript_ID_SECAO_FORNECEDOR = 'CotacoesScript_secaoOpcoesFornecedor';
+  const CotacoesScript_ID_SECAO_CURVA_ABC = 'CotacoesScript_secaoOpcoesCurvaABC';
+  const CotacoesScript_ID_SECAO_PRODUTO_ESPECIFICO = 'CotacoesScript_secaoOpcoesProdutoEspecifico';
+  const CotacoesScript_ID_CHECKBOX_CONTAINER_CATEGORIAS = 'CotacoesScript_checkboxContainerCategorias';
+  const CotacoesScript_ID_CHECKBOX_CONTAINER_FORNECEDORES = 'CotacoesScript_checkboxContainerFornecedores';
+  const CotacoesScript_ID_RADIO_CONTAINER_CURVA_ABC = 'CotacoesScript_radioContainerCurvaABC';
+  const CotacoesScript_ID_CHECKBOX_CONTAINER_PRODUTOS = 'CotacoesScript_checkboxContainerProdutos';
+  const CotacoesScript_ID_INPUT_BUSCA_FORNECEDOR = 'CotacoesScript_inputBuscaFornecedor';
+  const CotacoesScript_ID_INPUT_BUSCA_PRODUTO = 'CotacoesScript_inputBuscaProduto';
+  
+  // Ordem de exibição dos status
+  const CotacoesScript_ORDEM_STATUS = [
+    "Nova Cotação", "Aguardando Preços", "Finalizado", "Cancelado"
+    // Adicione outros status aqui na ordem desejada
+  ];
+
+  let CotacoesScript_dadosOpcoesCriacao = null; // Cache para os dados do modal
+
+  /**
+   * Função central para fazer chamadas à API do Firebase Functions.
+   */
+  async function CotacoesScript_callApi(endpoint, method = 'GET', body = null) {
+      try {
+          const options = {
+              method,
+              headers: { 'Content-Type': 'application/json' },
+          };
+          if (body) {
+              options.body = JSON.stringify(body);
+          }
+          const response = await fetch(`/api/${endpoint}`, options);
+          if (!response.ok) {
+              const errorData = await response.json().catch(() => ({ message: response.statusText }));
+              throw new Error(errorData.message || 'Erro de comunicação com o servidor.');
+          }
+          if (response.status === 204) {
+              return { success: true };
+          }
+          return await response.json();
+      } catch (error) {
+          console.error(`Erro na API [${endpoint}]:`, error);
+          return { error: true, success: false, message: error.message };
+      }
+  }
+
+  // --- Funções de UI (Feedback, Acordeão, etc.) ---
+
+  function CotacoesScript_exibirFeedback(containerId, mensagem, isError = false, duracao = 5000) {
+    const feedbackDiv = document.getElementById(containerId);
+    if (feedbackDiv) {
+      const innerDiv = document.createElement('div');
+      innerDiv.className = `p-3 rounded-md text-sm ${isError ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-blue-100 text-blue-700 border border-blue-300'}`;
+      innerDiv.textContent = mensagem;
+      feedbackDiv.innerHTML = '';
+      feedbackDiv.appendChild(innerDiv);
+      if (duracao > 0) {
+        setTimeout(() => {
+          if (feedbackDiv.contains(innerDiv)) {
+            feedbackDiv.innerHTML = '';
+          }
+        }, duracao);
+      }
+    }
+  }
+
+  function CotacoesScript_exibirFeedbackGlobal(mensagem, isError = false, duracao = 7000) {
+    CotacoesScript_exibirFeedback(CotacoesScript_ID_MENSAGEM_FEEDBACK_GLOBAL, mensagem, isError, duracao);
+  }
+  
+  function CotacoesScript_exibirFeedbackModal(mensagem, isError = false, duracao = 5000) {
+      CotacoesScript_exibirFeedback(CotacoesScript_ID_FEEDBACK_MODAL, mensagem, isError, duracao);
+  }
+
+  function CotacoesScript_toggleAccordion(headerButton) {
+    const contentId = headerButton.getAttribute('aria-controls');
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isExpanded = headerButton.getAttribute('aria-expanded') === 'true';
+    headerButton.setAttribute('aria-expanded', !isExpanded);
+    headerButton.classList.toggle('active');
+    content.classList.toggle('hidden');
+  }
+
+  function CotacoesScript_vincularEventosAcordeoes() {
+    const accordionHeaders = document.querySelectorAll(`#${CotacoesScript_ID_LISTA_STATUS_COTACOES} .accordion-header`);
+    accordionHeaders.forEach(header => {
+      // Remove listener antigo para evitar duplicação
+      header.removeEventListener('click', CotacoesScript_toggleAccordion); 
+      header.addEventListener('click', CotacoesScript_toggleAccordion);
+    });
+  }
+  
+  // --- Funções de Renderização ---
+
+  function CotacoesScript_renderizarResumoCotacao(cotacaoResumo) {
+    // A lógica de renderização permanece a mesma, mas a ação do botão "Abrir" é simplificada
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'cotacao-summary-item';
+    itemDiv.dataset.cotacaoId = cotacaoResumo.ID_da_Cotacao;
+
+    itemDiv.innerHTML = `
+      <div class="cotacao-info">
+        <div class="cotacao-id">Cotação ID: ${cotacaoResumo.ID_da_Cotacao}</div>
+        <div class="cotacao-data">Aberta em: ${cotacaoResumo.Data_Abertura_Formatada || "Data não informada"}</div>
+        ${cotacaoResumo.Categorias_Unicas_String ? `<div class="cotacao-categorias">Categorias: ${cotacaoResumo.Categorias_Unicas_String}</div>` : ''}
+      </div>
+      <div>
+        <button class="btn-painel-acao btn-abrir-cotacao" data-cotacao-id="${cotacaoResumo.ID_da_Cotacao}">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+          </svg>
+          <span>Abrir Cotação</span>
+        </button>
+      </div>
+    `;
+    
+    // Adiciona evento ao botão "Abrir"
+    const btnAbrir = itemDiv.querySelector('.btn-abrir-cotacao');
+    btnAbrir.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const id = event.currentTarget.dataset.cotacaoId;
+        // Ação temporária: A navegação para a página de edição será implementada futuramente
+        CotacoesScript_exibirFeedbackGlobal(`Funcionalidade "Abrir Cotação ${id}" ainda não implementada.`, false);
+    });
+
+    return itemDiv;
+  }
+  
+  function CotacoesScript_popularAcordeoes(cotacoesAgrupadasPorStatus) {
+    const listaStatusEl = document.getElementById(CotacoesScript_ID_LISTA_STATUS_COTACOES);
+    // Limpa apenas os conteúdos, mantendo a estrutura dos acordeões definidos no HTML
+    listaStatusEl.querySelectorAll('.accordion-content').forEach(el => el.innerHTML = '');
+    listaStatusEl.querySelectorAll('.accordion-item').forEach(el => el.style.display = 'none');
+    
+    CotacoesScript_ORDEM_STATUS.forEach(statusNome => {
+        const cotacoesDoStatus = cotacoesAgrupadasPorStatus[statusNome] || [];
+        const idAmigavel = statusNome.toLowerCase().replace(/\s+/g, '-');
+        const countId = `CotacoesScript_count_${statusNome.toLowerCase().replace(/\s+/g, '_')}`;
+        const contentId = `content-${idAmigavel}`;
+        
+        const accordionItem = listaStatusEl.querySelector(`.accordion-item[data-status="${statusNome}"]`);
+        
+        if (cotacoesDoStatus.length > 0 && accordionItem) {
+            accordionItem.style.display = ''; // Mostra o acordeão
+            const contentDiv = document.getElementById(contentId);
+            const countSpan = document.getElementById(countId);
+
+            if (countSpan) countSpan.textContent = `(${cotacoesDoStatus.length})`;
+            
+            // Ordena por data mais recente
+            cotacoesDoStatus.sort((a, b) => new Date(b.Data_Abertura_Formatada.split('/').reverse().join('-')) - new Date(a.Data_Abertura_Formatada.split('/').reverse().join('-')));
+            
+            cotacoesDoStatus.forEach(cotacaoResumo => {
+                const itemHtml = CotacoesScript_renderizarResumoCotacao(cotacaoResumo);
+                if (contentDiv) contentDiv.appendChild(itemHtml);
+            });
+        }
+    });
+
+    CotacoesScript_vincularEventosAcordeoes();
+  }
+  
+  // --- Lógica de Carregamento e Manipulação de Dados ---
+  
+  async function CotacoesScript_carregarTodasCotacoes() {
+    // Exibe o estado de loading
+    document.querySelectorAll('.accordion-content').forEach(el => {
+      el.innerHTML = `<div class="loading-spinner-container">
+                        <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span>Carregando...</span>
+                      </div>`;
+    });
+
+    const resposta = await CotacoesScript_callApi('cotacoes/resumos');
+    
+    if (resposta.success && Array.isArray(resposta.dados)) {
+      const cotacoesAgrupadas = resposta.dados.reduce((acc, cotacao) => {
+        const status = cotacao.Status_da_Cotacao || "Sem Status";
+        if (!acc[status]) acc[status] = [];
+        acc[status].push(cotacao);
+        return acc;
+      }, {});
+      CotacoesScript_popularAcordeoes(cotacoesAgrupadas);
+    } else {
+      const errorMsg = resposta.message || "Falha ao carregar resumos das cotações.";
+      CotacoesScript_exibirFeedbackGlobal(errorMsg, true);
+    }
+  }
+
+  // --- Funções do Modal de Nova Cotação ---
+
+  async function CotacoesScript_abrirModalNovaCotacao() {
+    document.getElementById(CotacoesScript_ID_MODAL_NOVA_COTACAO_OVERLAY).classList.add('active');
+    document.getElementById(CotacoesScript_ID_SELECT_TIPO_CRIACAO).value = ""; 
+    CotacoesScript_gerenciarVisibilidadeSecoesOpcoes(""); 
+    
+    // Limpa os campos de busca
+    document.getElementById(CotacoesScript_ID_INPUT_BUSCA_FORNECEDOR).value = "";
+    document.getElementById(CotacoesScript_ID_INPUT_BUSCA_PRODUTO).value = "";
+    
+    if (!CotacoesScript_dadosOpcoesCriacao) { 
+        CotacoesScript_setLoadingStateOpcoesModal(true);
+        const resposta = await CotacoesScript_callApi('cotacoes/opcoes-nova-cotacao');
+        CotacoesScript_popularOpcoesModal(resposta);
+    } else {
+        CotacoesScript_popularOpcoesModal(CotacoesScript_dadosOpcoesCriacao);
+    }
+  }
+
+  function CotacoesScript_fecharModalNovaCotacao() {
+    document.getElementById(CotacoesScript_ID_MODAL_NOVA_COTACAO_OVERLAY).classList.remove('active');
+    document.getElementById(CotacoesScript_ID_FEEDBACK_MODAL).innerHTML = ''; 
+  }
+
+  function CotacoesScript_setLoadingStateOpcoesModal(isLoading) {
+      const placeholder = `<p class="text-gray-500 text-sm">${isLoading ? "Carregando..." : "Nenhuma opção."}</p>`;
+      document.getElementById(CotacoesScript_ID_CHECKBOX_CONTAINER_CATEGORIAS).innerHTML = placeholder;
+      document.getElementById(CotacoesScript_ID_CHECKBOX_CONTAINER_FORNECEDORES).innerHTML = placeholder;
+      document.getElementById(CotacoesScript_ID_CHECKBOX_CONTAINER_PRODUTOS).innerHTML = placeholder;
+  }
+  
+  function CotacoesScript_popularOpcoesModal(resposta) {
+      CotacoesScript_setLoadingStateOpcoesModal(false); 
+      if (resposta.success && resposta.dados) {
+          CotacoesScript_dadosOpcoesCriacao = resposta; 
+          const { categorias, fornecedores, produtos } = resposta.dados;
+          CotacoesScript_popularCheckboxes(CotacoesScript_ID_CHECKBOX_CONTAINER_CATEGORIAS, categorias, 'cat');
+          CotacoesScript_popularCheckboxes(CotacoesScript_ID_CHECKBOX_CONTAINER_FORNECEDORES, fornecedores, 'forn', true);
+          CotacoesScript_popularCheckboxes(CotacoesScript_ID_CHECKBOX_CONTAINER_PRODUTOS, produtos, 'prod', true);    
+      } else {
+          CotacoesScript_exibirFeedbackModal(resposta.message || "Falha ao carregar dados.", true);
+      }
+  }
+
+  function CotacoesScript_popularCheckboxes(containerId, items, namePrefix, usarNomeComoValor = false) { 
+      const container = document.getElementById(containerId);
+      container.innerHTML = ''; 
+      if (!items || items.length === 0) {
+          container.innerHTML = '<p class="text-gray-500 text-sm">Nenhuma opção disponível.</p>';
+          return;
+      }
+      items.forEach((item, index) => {
+          const itemValue = typeof item === 'object' ? (usarNomeComoValor ? item.nome : item.id) : item; 
+          const itemName = typeof item === 'object' ? item.nome : item;
+          label.className = 'items-center space-x-2 text-sm text-gray-700 py-1';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.name = `${namePrefix}_${index}`;
+          checkbox.value = itemValue;
+          checkbox.className = 'form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500';
+          
+          label.appendChild(checkbox);
+          label.appendChild(document.createTextNode(" " + itemName));
+          container.appendChild(label);
+      });
+  }
+
+  function CotacoesScript_filtrarCheckboxes(containerId, termoBusca) {
+    const termoLowerCase = String(termoBusca).toLowerCase();
+    document.querySelectorAll(`#${containerId} label`).forEach(label => {
+        const textoLabel = label.textContent || "";
+        label.style.display = textoLabel.toLowerCase().includes(termoLowerCase) ? "flex" : "none";
+    });
+  }
+
+  function CotacoesScript_gerenciarVisibilidadeSecoesOpcoes(tipoSelecionado) {
+    document.querySelectorAll('.CotacoesScript_secaoOpcoesCriacao').forEach(el => el.classList.remove('active'));
+    let secaoAtivaId = null;
+    switch (tipoSelecionado) {
+        case 'categoria': secaoAtivaId = CotacoesScript_ID_SECAO_CATEGORIA; break;
+        case 'fornecedor': secaoAtivaId = CotacoesScript_ID_SECAO_FORNECEDOR; break;
+        case 'curvaABC': secaoAtivaId = CotacoesScript_ID_SECAO_CURVA_ABC; break;
+        case 'produtoEspecifico': secaoAtivaId = CotacoesScript_ID_SECAO_PRODUTO_ESPECIFICO; break;
+    }
+    if (secaoAtivaId) {
+        document.getElementById(secaoAtivaId).classList.add('active');
+    }
+  }
+  
+  function CotacoesScript_coletarSelecoesModal() {
+    const tipoCriacao = document.getElementById(CotacoesScript_ID_SELECT_TIPO_CRIACAO).value;
+    let selecoes = [];
+    if (!tipoCriacao) {
+        CotacoesScript_exibirFeedbackModal("Selecione um tipo de criação.", true);
+        return null;
+    }
+
+    let containerId, inputType = 'checkbox';
+    if (tipoCriacao === 'categoria') containerId = CotacoesScript_ID_CHECKBOX_CONTAINER_CATEGORIAS;
+    else if (tipoCriacao === 'fornecedor') containerId = CotacoesScript_ID_CHECKBOX_CONTAINER_FORNECEDORES;
+    else if (tipoCriacao === 'produtoEspecifico') containerId = CotacoesScript_ID_CHECKBOX_CONTAINER_PRODUTOS;
+    else if (tipoCriacao === 'curvaABC') inputType = 'radio';
+
+    if (inputType === 'checkbox') {
+        document.querySelectorAll(`#${containerId} input:checked`).forEach(cb => selecoes.push(cb.value));
+    } else { // radio
+        const radioChecked = document.querySelector(`input[name="curvaABC"]:checked`);
+        if (radioChecked) selecoes.push(radioChecked.value);
+    }
+    
+    if (selecoes.length === 0) {
+        CotacoesScript_exibirFeedbackModal("Nenhuma opção selecionada.", true);
+        return null;
+    }
+    
+    return { tipo: tipoCriacao, selecoes: selecoes };
+  }
+
+  async function CotacoesScript_lidarComCriacaoNovaCotacao() {
+    const dadosCriacao = CotacoesScript_coletarSelecoesModal();
+    if (!dadosCriacao) return;
+
+    const btn = document.getElementById(CotacoesScript_ID_BTN_CRIAR_COTACAO_MODAL);
+    btn.disabled = true;
+    CotacoesScript_exibirFeedbackModal("Criando cotação...", false, 0);
+
+    const resposta = await CotacoesScript_callApi('cotacoes/criar', 'POST', dadosCriacao);
+    
+    btn.disabled = false;
+    if (resposta.success) {
+      CotacoesScript_exibirFeedbackGlobal(resposta.message || "Cotação criada com sucesso!", false);
+      CotacoesScript_fecharModalNovaCotacao();
+      await CotacoesScript_carregarTodasCotacoes(); 
+    } else {
+      CotacoesScript_exibirFeedbackModal(resposta.message || "Falha ao criar cotação.", true);
+    }
+  }
+
+  function CotacoesScript_anexarListeners() {
+    // Ações globais
+    document.getElementById(CotacoesScript_ID_BTN_NOVA_COTACAO_GLOBAL)?.addEventListener('click', CotacoesScript_abrirModalNovaCotacao);
+    document.getElementById(CotacoesScript_ID_BTN_CONCILIAR_COTACAO)?.addEventListener('click', () => CotacoesScript_exibirFeedbackGlobal("Funcionalidade 'Conciliar Cotação' não implementada.", false));
+    document.getElementById(CotacoesScript_ID_BTN_ABRIR_MARCACAO_PRODUTOS)?.addEventListener('click', () => CotacoesScript_exibirFeedbackGlobal("Funcionalidade 'Marcar Recebimento' não implementada.", false));
+
+    // Modal Nova Cotação
+    document.getElementById(CotacoesScript_ID_BTN_FECHAR_MODAL_NOVA_COTACAO)?.addEventListener('click', CotacoesScript_fecharModalNovaCotacao);
+    document.getElementById(CotacoesScript_ID_BTN_CANCELAR_MODAL_NOVA_COTACAO)?.addEventListener('click', CotacoesScript_fecharModalNovaCotacao);
+    document.getElementById(CotacoesScript_ID_BTN_CRIAR_COTACAO_MODAL)?.addEventListener('click', CotacoesScript_lidarComCriacaoNovaCotacao);
+    document.getElementById(CotacoesScript_ID_SELECT_TIPO_CRIACAO)?.addEventListener('change', (e) => CotacoesScript_gerenciarVisibilidadeSecoesOpcoes(e.target.value));
+    document.getElementById(CotacoesScript_ID_MODAL_NOVA_COTACAO_OVERLAY)?.addEventListener('click', (e) => { if (e.target === e.currentTarget) CotacoesScript_fecharModalNovaCotacao(); });
+    
+    // Filtros do modal
+    document.getElementById(CotacoesScript_ID_INPUT_BUSCA_FORNECEDOR)?.addEventListener('keyup', (e) => CotacoesScript_filtrarCheckboxes(CotacoesScript_ID_CHECKBOX_CONTAINER_FORNECEDORES, e.target.value));
+    document.getElementById(CotacoesScript_ID_INPUT_BUSCA_PRODUTO)?.addEventListener('keyup', (e) => CotacoesScript_filtrarCheckboxes(CotacoesScript_ID_CHECKBOX_CONTAINER_PRODUTOS, e.target.value));
+  }
+
+  // --- Ponto de Entrada ---
+  console.log("Inicializando o script de Cotações para Firebase...");
+  CotacoesScript_anexarListeners();
+  CotacoesScript_carregarTodasCotacoes();
+
+})();
+</script>
+</body>
+</html>

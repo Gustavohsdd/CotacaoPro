@@ -10,6 +10,7 @@ import cors from "cors";
 import { fornecedoresRouter } from "./modules/fornecedores.js";
 import { produtosRouter } from "./modules/produtos.js";
 import { subProdutosRouter } from "./modules/subprodutos.js";
+import { cotacoesRouter } from "./modules/cotacoes.js"; // <- ADICIONE ESTA LINHA
 
 // Inicializa o Firebase Admin SDK
 admin.initializeApp();
@@ -20,7 +21,6 @@ setGlobalOptions({ region: "us-central1", memory: "256MiB" });
 const app = express();
 
 // Aplica o middleware do CORS para permitir requisições do frontend
-// É uma boa prática aplicar o CORS antes das rotas
 app.use(cors({ origin: true }));
 
 // Este middleware é essencial para que o Express consiga interpretar o corpo (body) de requisições JSON.
@@ -32,6 +32,7 @@ app.use(express.json());
 app.use('/api', fornecedoresRouter);
 app.use('/api', produtosRouter);
 app.use('/api', subProdutosRouter);
+app.use('/api', cotacoesRouter); // <- ADICIONE ESTA LINHA
 
 
 // Exporta a aplicação Express como uma única Cloud Function chamada "api"
