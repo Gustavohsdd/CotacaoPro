@@ -10,13 +10,14 @@ import cors from "cors";
 import { fornecedoresRouter } from "./modules/fornecedores.js";
 import { produtosRouter } from "./modules/produtos.js";
 import { subProdutosRouter } from "./modules/subprodutos.js";
-import { cotacoesRouter } from "./modules/cotacoes.js"; // <- ADICIONE ESTA LINHA
+import { cotacoesRouter } from "./modules/cotacoes.js";
 
 // Inicializa o Firebase Admin SDK
 admin.initializeApp();
 
 // Define a região padrão para as funções
-setGlobalOptions({ region: "us-central1", memory: "256MiB" });
+// Nota: setGlobalOptions se aplica a TODAS as funções. Vamos sobrescrever para a API.
+setGlobalOptions({ region: "us-central1" });
 
 const app = express();
 
@@ -32,8 +33,16 @@ app.use(express.json());
 app.use('/api', fornecedoresRouter);
 app.use('/api', produtosRouter);
 app.use('/api', subProdutosRouter);
-app.use('/api', cotacoesRouter); // <- ADICIONE ESTA LINHA
+app.use('/api', cotacoesRouter);
 
 
 // Exporta a aplicação Express como uma única Cloud Function chamada "api"
-export const api = onRequest(app);
+// Aumentamos o timeout para 540 segundos (9 minutos) e a memória para 1GiB
+// APENAS para a função 'api', que lida com a importação.
+export const api = onRequest(
+  {
+    timeoutSeconds: 540,
+    memory: "1GiB",
+  },
+  app
+);

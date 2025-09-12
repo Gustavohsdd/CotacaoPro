@@ -40,10 +40,16 @@ function cotacoes_convertSheetDataToObject(data) {
 
 /**
  * Rota para importar dados de cotações DIRETO DO GOOGLE SHEETS para o Firestore.
+ * ESTA VERSÃO FOI CORRIGIDA PARA LER E GRAVAR EM PEDAÇOS (CHUNKS),
+ * evitando erros de memória e timeout com grandes volumes de dados.
  */
 cotacoesRouter.post('/cotacoes/import', async (req, res) => {
-    const SHEET_NAME = 'Cotacoes'; // Nome da aba da planilha
-    logger.info(`API: Recebida requisição para importar cotações da planilha: ${SHEET_NAME}`);
+    const SHEET_NAME = 'Cotacoes';
+    const CHUNK_SIZE = 2000; // Quantas linhas da planilha ler por vez
+    const BATCH_SIZE = 450;  // Quantos documentos gravar no Firestore por lote
+
+    logger.info(`API: Iniciando importação em lotes da planilha: ${SHEET_NAME}`);
+
     try {
         const auth = new google.auth.GoogleAuth({
             credentials: {
@@ -53,41 +59,98 @@ cotacoesRouter.post('/cotacoes/import', async (req, res) => {
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         });
         const sheets = google.sheets({ version: 'v4', auth });
+        const db = admin.firestore();
 
-        const response = await sheets.spreadsheets.values.get({
+        // 1. Obter o cabeçalho primeiro para mapear os dados corretamente.
+        const headerResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: SHEET_NAME,
+            range: `${SHEET_NAME}!1:1`,
         });
 
-        const data = response.data.values;
-        if (!data || data.length === 0) {
-            logger.warn(`Nenhum dado encontrado na planilha de cotações.`);
-            return res.status(404).json({ success: false, message: "Nenhum dado encontrado na planilha." });
+        const headers = headerResponse.data.values[0];
+        if (!headers || headers.length === 0) {
+            throw new Error("Não foi possível ler o cabeçalho da planilha.");
+        }
+        logger.info("Cabeçalho da planilha lido com sucesso.", { headers });
+
+        let startRow = 2; // Começa a ler os dados da linha 2
+        let hasMoreData = true;
+        let totalItensProcessados = 0;
+
+        while (hasMoreData) {
+            const endRow = startRow + CHUNK_SIZE - 1;
+            const range = `${SHEET_NAME}!A${startRow}:ZZ${endRow}`; // ZZ para garantir todas as colunas
+            logger.info(`Buscando pedaço (chunk) de dados no intervalo: ${range}`);
+
+            const chunkResponse = await sheets.spreadsheets.values.get({
+                spreadsheetId: SPREADSHEET_ID,
+                range: range,
+            });
+
+            const rows = chunkResponse.data.values;
+            if (!rows || rows.length === 0) {
+                hasMoreData = false;
+                logger.info("Não há mais dados na planilha para processar.");
+                break;
+            }
+
+            const dataChunk = rows.map(row => {
+                const obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = row[index] || "";
+                });
+                return obj;
+            });
+            
+            logger.info(`${dataChunk.length} linhas de dados recebidas neste chunk.`);
+
+            // Processar e salvar o chunk de dados no Firestore em lotes
+            let batch = db.batch();
+            let operationsCount = 0;
+            
+            for (let i = 0; i < dataChunk.length; i++) {
+                const item = dataChunk[i];
+                const currentRowInSheet = startRow + i;
+
+                if (!item["ID da Cotação"]) {
+                    logger.warn(`Item na linha ${currentRowInSheet} da planilha ignorado por não ter 'ID da Cotação'.`, { item });
+                    continue;
+                }
+
+                const docId = `COT${String(item["ID da Cotação"]).padStart(6, '0')}_ITEM${String(currentRowInSheet).padStart(6, '0')}`;
+                const docRef = db.collection(COTACOES_COLLECTION).doc(docId);
+                
+                batch.set(docRef, item, { merge: true });
+                operationsCount++;
+                totalItensProcessados++;
+
+                if (operationsCount >= BATCH_SIZE) {
+                    await batch.commit();
+                    logger.info(`Lote de ${operationsCount} itens do chunk salvo com sucesso.`);
+                    batch = db.batch();
+                    operationsCount = 0;
+                }
+            }
+
+            if (operationsCount > 0) {
+                await batch.commit();
+                logger.info(`Lote final do chunk com ${operationsCount} itens salvo com sucesso.`);
+            }
+
+            // Prepara para a próxima iteração
+            startRow += rows.length;
+            if (rows.length < CHUNK_SIZE) {
+                hasMoreData = false;
+                logger.info("Fim da planilha alcançado.");
+            }
         }
 
-        const cotacoesItens = cotacoes_convertSheetDataToObject(data);
-
-        const db = admin.firestore();
-        const batch = db.batch();
-        let count = 0;
-        
-        // Cada linha na planilha é um item de uma cotação. Usaremos um ID único para cada linha.
-        cotacoesItens.forEach((item, index) => {
-            // Criamos um ID de documento único para cada item da cotação
-            const docId = `COT${String(item["ID da Cotação"]).padStart(4, '0')}-ITEM${String(index + 1).padStart(4, '0')}`;
-            const docRef = db.collection(COTACOES_COLLECTION).doc(docId);
-            batch.set(docRef, item, { merge: true });
-            count++;
-        });
-
-        await batch.commit();
-
-        logger.info(`API: ${count} itens de cotação importados/atualizados com sucesso.`);
-        res.status(200).json({ success: true, message: `${count} itens de cotação importados/atualizados com sucesso!` });
+        logger.info(`API: Importação concluída. Total de ${totalItensProcessados} itens processados e salvos.`);
+        res.status(200).json({ success: true, message: `Importação concluída! ${totalItensProcessados} itens foram processados e salvos.` });
 
     } catch (e) {
-        logger.error("Erro ao importar cotações do Google Sheets:", e);
-        res.status(500).json({ success: false, message: e.message });
+        logger.error("Erro CRÍTICO durante a importação em lotes de cotações:", e);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${e.message}` });
     }
 });
 
