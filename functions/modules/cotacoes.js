@@ -3,14 +3,11 @@ import { Router } from "express";
 import logger from "firebase-functions/logger";
 import admin from "firebase-admin";
 import { google } from "googleapis";
-import { createRequire } from 'module';
 
 export const cotacoesRouter = Router();
 
 // --- CONSTANTES DE CONFIGURAÇÃO ---
 const SPREADSHEET_ID = '1CFbP6_VC4TOJXITwO-nvxu6IX1brAYJNUCaRW0VDXDY';
-const require = createRequire(import.meta.url);
-const serviceAccountKey = require('../serviceAccountKey.json');
 
 // Nomes das coleções do Firestore
 const PRODUTOS_COLLECTION = 'produtos';
@@ -61,8 +58,6 @@ function cotacoes_parseData(dateString) {
 
     return new Date(year, month, day, hours, minutes, seconds);
 }
-
-// functions/modules/cotacoes.js
 
 /**
  * Agrupa os itens de cotação da planilha na estrutura de Documento com Sub-coleção (Array de Itens).
@@ -173,11 +168,8 @@ cotacoesRouter.post('/cotacoes/import', async (req, res) => {
     logger.info(`API: Iniciando importação da planilha: ${SHEET_NAME}`);
 
     try {
+        // Autenticação foi AJUSTADA para usar as credenciais automáticas do Firebase
         const auth = new google.auth.GoogleAuth({
-            credentials: {
-                client_email: serviceAccountKey.client_email,
-                private_key: serviceAccountKey.private_key,
-            },
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         });
 

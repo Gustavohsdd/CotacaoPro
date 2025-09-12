@@ -11,6 +11,7 @@ import { fornecedoresRouter } from "./modules/fornecedores.js";
 import { produtosRouter } from "./modules/produtos.js";
 import { subProdutosRouter } from "./modules/subprodutos.js";
 import { cotacoesRouter } from "./modules/cotacoes.js";
+import { cotacaoindividualRouter } from "./modules/cotacaoindividual.js";
 
 // Inicializa o Firebase Admin SDK
 admin.initializeApp();
@@ -34,6 +35,7 @@ app.use('/api', fornecedoresRouter);
 app.use('/api', produtosRouter);
 app.use('/api', subProdutosRouter);
 app.use('/api', cotacoesRouter);
+app.use('/api', cotacaoindividualRouter);
 
 
 // Exporta a aplicação Express como uma única Cloud Function chamada "api"

@@ -1252,9 +1252,13 @@
                 FornecedoresScript_mostrarLoadingBotao(btnSalvar, "Salvando...");
                 FornecedoresScript_exibirMensagemEmModal(FornecedoresScript_ID_MENSAGEM_MODAL, 'Processando...', false);
 
-                const formData = new FormData(event.target);
+                const form = event.target;
+                const formData = new FormData(form);
                 const dadosDoFormulario = {};
+
+                // Itera sobre todos os campos do formulário
                 for (let [key, value] of formData.entries()) {
+                    // Limpa e formata o valor do campo de pedido mínimo
                     if (key === "Pedido Mínimo (R$)") {
                         dadosDoFormulario[key] = FornecedoresScript_obterValorMoedaCru(value);
                     } else {
@@ -1264,15 +1268,17 @@
 
                 try {
                     let response;
-                    if (FornecedoresScript_modoModal === 'criar') {
+                    const endpoint = FornecedoresScript_modoModal === 'criar' ? 'fornecedores/create' : 'fornecedores/update';
+                    
+                    // No modo de criação, removemos o campo ID se ele estiver vazio
+                    if (FornecedoresScript_modoModal === 'criar' && dadosDoFormulario.ID === '') {
                         delete dadosDoFormulario.ID;
-                        response = await FornecedoresScript_callApi('fornecedores/create', 'POST', dadosDoFormulario);
-                    } else {
-                        response = await FornecedoresScript_callApi('fornecedores/update', 'POST', dadosDoFormulario);
                     }
 
+                    response = await FornecedoresScript_callApi(endpoint, 'POST', dadosDoFormulario);
+
                     if (response.error || !response.success) {
-                        throw new Error(response.message || "Ocorreu um erro desconhecido.");
+                        throw new Error(response.message || "Ocorreu um erro desconhecido ao salvar.");
                     }
 
                     FornecedoresScript_fecharModalPrincipal();

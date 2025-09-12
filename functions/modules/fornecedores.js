@@ -3,7 +3,6 @@ import { Router } from "express";
 import logger from "firebase-functions/logger";
 import admin from "firebase-admin";
 import { google } from "googleapis";
-import { createRequire } from 'module';
 
 
 export const fornecedoresRouter = Router();
@@ -12,8 +11,6 @@ export const fornecedoresRouter = Router();
 const SPREADSHEET_ID = '1CFbP6_VC4TOJXITwO-nvxu6IX1brAYJNUCaRW0VDXDY';
 const SHEET_NAME = 'Fornecedores';
 const FIRESTORE_COLLECTION = 'fornecedores';
-const require = createRequire(import.meta.url);
-const serviceAccountKey = require('../serviceAccountKey.json');
 
 /**
  * Função utilitária para converter dados da planilha (array de arrays) para um array de objetos.
@@ -41,12 +38,8 @@ function fornecedores_convertSheetDataToObject(data) {
 fornecedoresRouter.post('/fornecedores/import', async (req, res) => {
     logger.info(`API: Recebida requisição para importar fornecedores da planilha: ${SHEET_NAME}`);
     try {
-        // Autenticação explícita com a chave da conta de serviço
+        // Autenticação foi AJUSTADA para usar as credenciais automáticas do Firebase
         const auth = new google.auth.GoogleAuth({
-            credentials: {
-                client_email: serviceAccountKey.client_email,
-                private_key: serviceAccountKey.private_key,
-            },
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         });
         const sheets = google.sheets({ version: 'v4', auth });
@@ -161,10 +154,24 @@ fornecedoresRouter.post('/fornecedores/create', async (req, res) => {
         }
 
         const db = admin.firestore();
-        const novoFornecedorRef = db.collection(FIRESTORE_COLLECTION).doc(); // Gera um ID automático
+        const novoFornecedorRef = db.collection(FIRESTORE_COLLECTION).doc();
+
+        // Mapeia explicitamente os campos esperados para maior segurança
         const novoFornecedor = {
-            ...dadosNovoFornecedor,
-            ID: novoFornecedorRef.id,
+            "Fornecedor": dadosNovoFornecedor["Fornecedor"] || "",
+            "CNPJ": dadosNovoFornecedor["CNPJ"] || "",
+            "Categoria": dadosNovoFornecedor["Categoria"] || "",
+            "Vendedor": dadosNovoFornecedor["Vendedor"] || "",
+            "Telefone": dadosNovoFornecedor["Telefone"] || "",
+            "Email": dadosNovoFornecedor["Email"] || "",
+            "Dias de Pedido": dadosNovoFornecedor["Dias de Pedido"] || "",
+            "Dia de Faturamento": dadosNovoFornecedor["Dia de Faturamento"] || "",
+            "Dias de Entrega": dadosNovoFornecedor["Dias de Entrega"] || "",
+            "Pedido Mínimo (R$)": dadosNovoFornecedor["Pedido Mínimo (R$)"] || "",
+            "Condições de Pagamento": dadosNovoFornecedor["Condições de Pagamento"] || "",
+            "Regime Tributário": dadosNovoFornecedor["Regime Tributário"] || "",
+            "Contato Financeiro": dadosNovoFornecedor["Contato Financeiro"] || "",
+            "ID": novoFornecedorRef.id, // Adiciona o ID gerado
             "Data de Cadastro": new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
         };
 
