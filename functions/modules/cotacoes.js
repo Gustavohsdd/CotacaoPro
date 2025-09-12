@@ -20,8 +20,8 @@ const COTACOES_COLLECTION = 'cotacoes';
 
 /**
  * Converte a string de data da planilha para um objeto Date do JavaScript.
- * Formato esperado: 'YYYY-MM-DD HH:mm:ss'
- * ESTA FUNÇÃO FOI ATUALIZADA PARA SER MAIS ROBUSTA E EVITAR ERROS.
+ * Formato esperado: 'DD/MM/AAAA HH:mm' ou 'DD/MM/AAAA'
+ * ESTA FUNÇÃO FOI ATUALIZADA PARA TRATAR O FORMATO DE DATA BRASILEIRO (DD/MM/AAAA).
  */
 function cotacoes_parseData(dateString) {
     // Garante que o valor de entrada é uma string antes de processar
@@ -31,17 +31,19 @@ function cotacoes_parseData(dateString) {
 
     const parts = dateString.trim().split(' ');
     
-    // Verifica se a data (primeira parte) existe e tem o formato correto
-    if (!parts[0] || parts[0].split('-').length !== 3) {
-        return null;
+    // Verifica se a data (primeira parte) existe e tem o formato com barras
+    if (!parts[0] || parts[0].split('/').length !== 3) {
+        return null; // Retorna nulo se não estiver no formato esperado
     }
     
-    const dataParts = parts[0].split('-');
+    const dataParts = parts[0].split('/'); // Divide a data por '/'
     const timeParts = parts[1] ? parts[1].split(':') : [0, 0, 0];
     
-    const year = parseInt(dataParts[0], 10);
-    const month = parseInt(dataParts[1], 10) - 1; // Mês no JS é 0-indexed
-    const day = parseInt(dataParts[2], 10);
+    // --- CORREÇÃO PRINCIPAL AQUI ---
+    // Atribui as partes da data na ordem correta: Dia, Mês, Ano
+    const day = parseInt(dataParts[0], 10);
+    const month = parseInt(dataParts[1], 10) - 1; // Mês no JS é 0-indexed (0-11)
+    const year = parseInt(dataParts[2], 10);
     
     const hours = parseInt(timeParts[0] || 0, 10);
     const minutes = parseInt(timeParts[1] || 0, 10);
@@ -51,6 +53,11 @@ function cotacoes_parseData(dateString) {
     if (isNaN(year) || isNaN(month) || isNaN(day)) {
         return null;
     }
+    
+    // Valida se o ano tem 4 dígitos para evitar datas como '05/04/24'
+    if (String(year).length < 4) {
+        return null;
+    }
 
     return new Date(year, month, day, hours, minutes, seconds);
 }
@@ -58,9 +65,10 @@ function cotacoes_parseData(dateString) {
 // functions/modules/cotacoes.js
 
 /**
- * Agrupa os itens de cotação da planilha.
- * Cada linha da planilha é um item, e agrupamos eles pelo 'ID da Cotação'.
- * ESTA FUNÇÃO FOI ATUALIZADA PARA MELHOR TRATAR A CONVERSÃO DE DATAS.
+ * Agrupa os itens de cotação da planilha na estrutura de Documento com Sub-coleção (Array de Itens).
+ * Cada linha da planilha é um item, e agrupamos eles pelo 'ID da Cotação', criando um documento
+ * principal para a cotação e aninhando os itens em um array 'itens'.
+ * ESTA FUNÇÃO FOI ATUALIZADA PARA CRIAR A ESTRUTURA DE DADOS SOLICITADA.
  */
 function cotacoes_agruparCotacoes(data) {
     if (!data || data.length < 2) {
@@ -71,13 +79,22 @@ function cotacoes_agruparCotacoes(data) {
     const rows = data.slice(1);
     const cotacoesAgrupadas = {};
 
+    // Lista de todos os cabeçalhos que devem ser tratados como números.
+    const camposNumericos = [
+        'Preço', 'Preço por Fator', 'Valor Total', 'Economia em Cotação',
+        'Estoque Mínimo', 'Fator', 'Estoque Atual', 'Quantidade Recebida',
+        'Divergencia da Nota', 'Quantidade na Nota', 'Preço da Nota'
+    ];
+
     rows.forEach(row => {
-        const item = {};
+        // Objeto temporário para armazenar todos os dados da linha atual
+        const itemDaLinha = {};
         headers.forEach((header, index) => {
             let value = row[index] !== undefined && row[index] !== null ? row[index] : "";
 
             // Limpeza e conversão de tipos de dados
-            if (['Preço', 'Preço por Fator', 'Valor Total', 'Economia em Cotação'].includes(header)) {
+            if (camposNumericos.includes(header)) {
+                // Converte para número, tratando vírgula como decimal. Se falhar, vira 0.
                 value = parseFloat(String(value).replace(',', '.')) || 0;
             } else if (header === 'Data Abertura') {
                 const parsedDate = cotacoes_parseData(value);
@@ -88,23 +105,33 @@ function cotacoes_agruparCotacoes(data) {
                     value = null; // Salva como nulo se a data for inválida
                 }
             }
-            item[header] = value;
+            itemDaLinha[header] = value;
         });
 
-        const cotacaoId = item['ID da Cotação'];
+        const cotacaoId = itemDaLinha['ID da Cotação'];
         if (!cotacaoId) {
-            return; // Pula linhas sem ID de cotação
+            return; // Pula linhas que não têm um ID de cotação
         }
 
+        // Se for a primeira vez que encontramos essa cotação, criamos sua estrutura principal.
         if (!cotacoesAgrupadas[cotacaoId]) {
             cotacoesAgrupadas[cotacaoId] = {
-                idCotacao: cotacaoId,
-                dataAbertura: item['Data Abertura'],
-                status: item['Status da Cotação'],
-                itens: []
+                idCotacao: cotacaoId, // Este campo será usado como ID do documento no Firestore
+                "Data Abertura": itemDaLinha['Data Abertura'],
+                "Status da Cotação": itemDaLinha['Status da Cotação'],
+                itens: [] // O array que vai conter todos os subprodutos/itens
             };
         }
-        cotacoesAgrupadas[cotacaoId].itens.push(item);
+
+        // Criamos um objeto de item limpo, removendo os campos que já estão no nível principal do documento.
+        // Isso evita a duplicação de dados dentro do array 'itens'.
+        const itemParaArray = { ...itemDaLinha };
+        delete itemParaArray['ID da Cotação'];
+        delete itemParaArray['Data Abertura'];
+        delete itemParaArray['Status da Cotação'];
+
+        // Adicionamos o objeto do item (representando o subproduto) ao array 'itens' da cotação correta.
+        cotacoesAgrupadas[cotacaoId].itens.push(itemParaArray);
     });
 
     return Object.values(cotacoesAgrupadas);
@@ -231,41 +258,48 @@ cotacoesRouter.post('/cotacoes/import', async (req, res) => {
 
 /**
  * Rota para obter os resumos de cotações do Firestore.
+ * ESTA VERSÃO FOI CORRIGIDA PARA LER A NOVA ESTRUTURA DE DOCUMENTOS,
+ * COM UM ARRAY 'itens' ANINHADO.
  */
 cotacoesRouter.get('/cotacoes/resumos', async (req, res) => {
     logger.info("API: Recebida requisição para obter resumos de cotações.");
     try {
         const db = admin.firestore();
-        const snapshot = await db.collection(COTACOES_COLLECTION).get();
+        const snapshot = await db.collection(COTACOES_COLLECTION).orderBy("Data Abertura", "desc").get();
 
         if (snapshot.empty) {
             return res.status(200).json({ success: true, dados: [], message: "Nenhuma cotação encontrada." });
         }
 
-        const cotacoesUnicas = {};
-
-        snapshot.forEach(doc => {
-            const item = doc.data();
-            const idCotacao = item["ID da Cotação"];
-            if (!idCotacao) return;
-
-            if (!cotacoesUnicas[idCotacao]) {
-                cotacoesUnicas[idCotacao] = {
-                    ID_da_Cotacao: idCotacao,
-                    Data_Abertura_Formatada: item["Data Abertura"] ? new Date(item["Data Abertura"]).toLocaleDateString('pt-BR') : "N/A",
-                    Status_da_Cotacao: item["Status da Cotação"] || "Status Desconhecido",
-                    Categorias: new Set()
-                };
+        const arrayDeResumos = snapshot.docs.map(doc => {
+            const cotacao = doc.data();
+            
+            // Extrai as categorias únicas do array 'itens'
+            const categorias = new Set();
+            if (cotacao.itens && Array.isArray(cotacao.itens)) {
+                cotacao.itens.forEach(item => {
+                    if (item.Categoria) {
+                        categorias.add(item.Categoria);
+                    }
+                });
             }
-            if (item.Categoria) {
-                cotacoesUnicas[idCotacao].Categorias.add(item.Categoria);
+
+            // Formata a data de abertura, que agora é um Timestamp do Firestore
+            let dataAberturaFormatada = "N/A";
+            if (cotacao['Data Abertura'] && typeof cotacao['Data Abertura'].toDate === 'function') {
+                dataAberturaFormatada = cotacao['Data Abertura'].toDate().toLocaleDateString('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric'
+                });
             }
+
+            // Monta o objeto de resumo para o front-end
+            return {
+                ID_da_Cotacao: cotacao.idCotacao,
+                Data_Abertura_Formatada: dataAberturaFormatada,
+                Status_da_Cotacao: cotacao['Status da Cotação'] || "Status Desconhecido",
+                Categorias_Unicas_String: Array.from(categorias).join(', ')
+            };
         });
-
-        const arrayDeResumos = Object.values(cotacoesUnicas).map(cotacao => ({
-            ...cotacao,
-            Categorias_Unicas_String: Array.from(cotacao.Categorias).join(', ')
-        }));
 
         res.status(200).json({ success: true, dados: arrayDeResumos });
 
