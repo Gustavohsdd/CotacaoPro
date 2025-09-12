@@ -19,6 +19,98 @@ const FORNECEDORES_COLLECTION = 'fornecedores';
 const COTACOES_COLLECTION = 'cotacoes';
 
 /**
+ * Converte a string de data da planilha para um objeto Date do JavaScript.
+ * Formato esperado: 'YYYY-MM-DD HH:mm:ss'
+ * ESTA FUNÇÃO FOI ATUALIZADA PARA SER MAIS ROBUSTA E EVITAR ERROS.
+ */
+function cotacoes_parseData(dateString) {
+    // Garante que o valor de entrada é uma string antes de processar
+    if (typeof dateString !== 'string' || !dateString.trim()) {
+        return null;
+    }
+
+    const parts = dateString.trim().split(' ');
+    
+    // Verifica se a data (primeira parte) existe e tem o formato correto
+    if (!parts[0] || parts[0].split('-').length !== 3) {
+        return null;
+    }
+    
+    const dataParts = parts[0].split('-');
+    const timeParts = parts[1] ? parts[1].split(':') : [0, 0, 0];
+    
+    const year = parseInt(dataParts[0], 10);
+    const month = parseInt(dataParts[1], 10) - 1; // Mês no JS é 0-indexed
+    const day = parseInt(dataParts[2], 10);
+    
+    const hours = parseInt(timeParts[0] || 0, 10);
+    const minutes = parseInt(timeParts[1] || 0, 10);
+    const seconds = parseInt(timeParts[2] || 0, 10);
+
+    // Valida se as partes são números válidos
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        return null;
+    }
+
+    return new Date(year, month, day, hours, minutes, seconds);
+}
+
+// functions/modules/cotacoes.js
+
+/**
+ * Agrupa os itens de cotação da planilha.
+ * Cada linha da planilha é um item, e agrupamos eles pelo 'ID da Cotação'.
+ * ESTA FUNÇÃO FOI ATUALIZADA PARA MELHOR TRATAR A CONVERSÃO DE DATAS.
+ */
+function cotacoes_agruparCotacoes(data) {
+    if (!data || data.length < 2) {
+        return [];
+    }
+
+    const headers = data[0];
+    const rows = data.slice(1);
+    const cotacoesAgrupadas = {};
+
+    rows.forEach(row => {
+        const item = {};
+        headers.forEach((header, index) => {
+            let value = row[index] !== undefined && row[index] !== null ? row[index] : "";
+
+            // Limpeza e conversão de tipos de dados
+            if (['Preço', 'Preço por Fator', 'Valor Total', 'Economia em Cotação'].includes(header)) {
+                value = parseFloat(String(value).replace(',', '.')) || 0;
+            } else if (header === 'Data Abertura') {
+                const parsedDate = cotacoes_parseData(value);
+                // Apenas converte para Timestamp se a data for válida
+                if (parsedDate) {
+                    value = admin.firestore.Timestamp.fromDate(parsedDate);
+                } else {
+                    value = null; // Salva como nulo se a data for inválida
+                }
+            }
+            item[header] = value;
+        });
+
+        const cotacaoId = item['ID da Cotação'];
+        if (!cotacaoId) {
+            return; // Pula linhas sem ID de cotação
+        }
+
+        if (!cotacoesAgrupadas[cotacaoId]) {
+            cotacoesAgrupadas[cotacaoId] = {
+                idCotacao: cotacaoId,
+                dataAbertura: item['Data Abertura'],
+                status: item['Status da Cotação'],
+                itens: []
+            };
+        }
+        cotacoesAgrupadas[cotacaoId].itens.push(item);
+    });
+
+    return Object.values(cotacoesAgrupadas);
+}
+
+/**
  * Função utilitária para converter dados da planilha (array de arrays) para um array de objetos.
  */
 function cotacoes_convertSheetDataToObject(data) {
@@ -40,15 +132,18 @@ function cotacoes_convertSheetDataToObject(data) {
 
 /**
  * Rota para importar dados de cotações DIRETO DO GOOGLE SHEETS para o Firestore.
- * ESTA VERSÃO FOI CORRIGIDA PARA LER E GRAVAR EM PEDAÇOS (CHUNKS),
- * evitando erros de memória e timeout com grandes volumes de dados.
+ * ESTA VERSÃO FOI CORRIGIDA PARA REDUZIR O TAMANHO DO LOTE DE ESCRITA (BATCH),
+ * EVITANDO O ERRO DE PAYLOAD DO FIRESTORE.
  */
 cotacoesRouter.post('/cotacoes/import', async (req, res) => {
     const SHEET_NAME = 'Cotacoes';
-    const CHUNK_SIZE = 2000; // Quantas linhas da planilha ler por vez
-    const BATCH_SIZE = 450;  // Quantos documentos gravar no Firestore por lote
+    // --- CORREÇÃO PRINCIPAL AQUI ---
+    // Reduzimos o BATCH_SIZE drasticamente. Em vez de 450 cotações por lote,
+    // agora enviaremos apenas 20. Isso cria pacotes de escrita menores.
+    const BATCH_SIZE = 20;
+    const CHUNK_ROWS = 5000;    // A leitura em blocos continua igual e eficiente.
 
-    logger.info(`API: Iniciando importação em lotes da planilha: ${SHEET_NAME}`);
+    logger.info(`API: Iniciando importação da planilha: ${SHEET_NAME}`);
 
     try {
         const auth = new google.auth.GoogleAuth({
@@ -58,99 +153,78 @@ cotacoesRouter.post('/cotacoes/import', async (req, res) => {
             },
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         });
+
         const sheets = google.sheets({ version: 'v4', auth });
         const db = admin.firestore();
 
-        // 1. Obter o cabeçalho primeiro para mapear os dados corretamente.
+        // 1. Ler os cabeçalhos primeiro
         const headerResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: `${SHEET_NAME}!1:1`,
         });
-
         const headers = headerResponse.data.values[0];
-        if (!headers || headers.length === 0) {
-            throw new Error("Não foi possível ler o cabeçalho da planilha.");
-        }
-        logger.info("Cabeçalho da planilha lido com sucesso.", { headers });
+        let allRows = [headers];
 
-        let startRow = 2; // Começa a ler os dados da linha 2
-        let hasMoreData = true;
-        let totalItensProcessados = 0;
+        // 2. Ler o restante da planilha em blocos (chunks)
+        let startRow = 2;
+        let continueReading = true;
 
-        while (hasMoreData) {
-            const endRow = startRow + CHUNK_SIZE - 1;
-            const range = `${SHEET_NAME}!A${startRow}:ZZ${endRow}`; // ZZ para garantir todas as colunas
-            logger.info(`Buscando pedaço (chunk) de dados no intervalo: ${range}`);
-
-            const chunkResponse = await sheets.spreadsheets.values.get({
+        while (continueReading) {
+            const range = `${SHEET_NAME}!A${startRow}:Z${startRow + CHUNK_ROWS - 1}`;
+            logger.info(`API: Lendo bloco de dados do range: ${range}`);
+            
+            const response = await sheets.spreadsheets.values.get({
                 spreadsheetId: SPREADSHEET_ID,
                 range: range,
             });
 
-            const rows = chunkResponse.data.values;
-            if (!rows || rows.length === 0) {
-                hasMoreData = false;
-                logger.info("Não há mais dados na planilha para processar.");
-                break;
-            }
+            const chunkData = response.data.values;
 
-            const dataChunk = rows.map(row => {
-                const obj = {};
-                headers.forEach((header, index) => {
-                    obj[header] = row[index] || "";
-                });
-                return obj;
-            });
-            
-            logger.info(`${dataChunk.length} linhas de dados recebidas neste chunk.`);
-
-            // Processar e salvar o chunk de dados no Firestore em lotes
-            let batch = db.batch();
-            let operationsCount = 0;
-            
-            for (let i = 0; i < dataChunk.length; i++) {
-                const item = dataChunk[i];
-                const currentRowInSheet = startRow + i;
-
-                if (!item["ID da Cotação"]) {
-                    logger.warn(`Item na linha ${currentRowInSheet} da planilha ignorado por não ter 'ID da Cotação'.`, { item });
-                    continue;
-                }
-
-                const docId = `COT${String(item["ID da Cotação"]).padStart(6, '0')}_ITEM${String(currentRowInSheet).padStart(6, '0')}`;
-                const docRef = db.collection(COTACOES_COLLECTION).doc(docId);
+            if (chunkData && chunkData.length > 0) {
+                allRows.push(...chunkData);
                 
-                batch.set(docRef, item, { merge: true });
-                operationsCount++;
-                totalItensProcessados++;
-
-                if (operationsCount >= BATCH_SIZE) {
-                    await batch.commit();
-                    logger.info(`Lote de ${operationsCount} itens do chunk salvo com sucesso.`);
-                    batch = db.batch();
-                    operationsCount = 0;
+                if (chunkData.length < CHUNK_ROWS) {
+                    continueReading = false;
+                } else {
+                    startRow += CHUNK_ROWS;
                 }
-            }
-
-            if (operationsCount > 0) {
-                await batch.commit();
-                logger.info(`Lote final do chunk com ${operationsCount} itens salvo com sucesso.`);
-            }
-
-            // Prepara para a próxima iteração
-            startRow += rows.length;
-            if (rows.length < CHUNK_SIZE) {
-                hasMoreData = false;
-                logger.info("Fim da planilha alcançado.");
+            } else {
+                continueReading = false;
             }
         }
 
-        logger.info(`API: Importação concluída. Total de ${totalItensProcessados} itens processados e salvos.`);
-        res.status(200).json({ success: true, message: `Importação concluída! ${totalItensProcessados} itens foram processados e salvos.` });
+        if (allRows.length <= 1) {
+            logger.warn('API: Nenhum dado de cotação encontrado na planilha (além do cabeçalho).');
+            return res.status(404).send('Nenhum dado de cotação encontrado na planilha.');
+        }
 
-    } catch (e) {
-        logger.error("Erro CRÍTICO durante a importação em lotes de cotações:", e);
-        res.status(500).json({ success: false, message: `Erro no servidor: ${e.message}` });
+        logger.info(`API: Leitura da planilha concluída. Total de ${allRows.length -1} linhas de dados encontradas.`);
+        
+        // 3. Processa e agrupa todos os dados que foram lidos
+        const cotacoesProcessadas = cotacoes_agruparCotacoes(allRows);
+        logger.info(`API: ${cotacoesProcessadas.length} cotações agrupadas para importação.`);
+
+        // 4. Grava em lotes no Firestore (agora com BATCH_SIZE menor)
+        for (let i = 0; i < cotacoesProcessadas.length; i += BATCH_SIZE) {
+            const batch = db.batch();
+            const chunkToCommit = cotacoesProcessadas.slice(i, i + BATCH_SIZE);
+            
+            logger.info(`API: Preparando lote de escrita ${Math.floor(i / BATCH_SIZE) + 1} com ${chunkToCommit.length} cotações.`);
+
+            chunkToCommit.forEach(cotacao => {
+                const docRef = db.collection(COTACOES_COLLECTION).doc(String(cotacao.idCotacao));
+                batch.set(docRef, cotacao);
+            });
+
+            await batch.commit();
+            logger.info(`API: Lote de ${chunkToCommit.length} cotações importado com sucesso.`);
+        }
+
+        res.status(200).send(`Importação da planilha '${SHEET_NAME}' concluída com sucesso.`);
+
+    } catch (error) {
+        logger.error('API: Erro durante a importação de cotações:', error);
+        res.status(500).send(`Erro na importação: ${error.message}`);
     }
 });
 
