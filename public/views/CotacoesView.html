@@ -327,6 +327,24 @@
         </button>
         <div id="content-aguardando-precos" class="accordion-content hidden"></div>
       </div>
+
+        <div class="accordion-item" data-status="Aguardando Faturamento">
+        <button class="accordion-header" aria-expanded="false" aria-controls="content-aguardando-faturamento">
+          <span>Aguardando Faturamento</span>
+          <span class="ml-auto mr-2 text-sm font-normal text-gray-500" id="CotacoesScript_count_aguardando_faturamento">(0)</span>
+          <svg class="accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        <div id="content-aguardando-faturamento" class="accordion-content hidden"></div>
+      </div>
+
+      <div class="accordion-item" data-status="Recebido Parcialmente">
+        <button class="accordion-header" aria-expanded="false" aria-controls="content-recebido-parcialmente">
+          <span>Recebido Parcialmente</span>
+          <span class="ml-auto mr-2 text-sm font-normal text-gray-500" id="CotacoesScript_count_recebido_parcialmente">(0)</span>
+          <svg class="accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        <div id="content-recebido-parcialmente" class="accordion-content hidden"></div>
+      </div>
       
        <div class="accordion-item" data-status="Finalizado">
         <button class="accordion-header" aria-expanded="false" aria-controls="content-finalizado">
@@ -344,6 +362,15 @@
           <svg class="accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
         </button>
         <div id="content-cancelado" class="accordion-content hidden"></div>
+      </div>
+
+      <div class="accordion-item" data-status="Outros">
+        <button class="accordion-header" aria-expanded="false" aria-controls="content-outros">
+          <span>Outros Status</span>
+          <span class="ml-auto mr-2 text-sm font-normal text-gray-500" id="CotacoesScript_count_outros">(0)</span>
+          <svg class="accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        <div id="content-outros" class="accordion-content hidden"></div>
       </div>
       <!-- Outros acordeões serão adicionados dinamicamente se existirem outros status -->
     </div>
@@ -431,10 +458,15 @@
   const CotacoesScript_ID_INPUT_BUSCA_FORNECEDOR = 'CotacoesScript_inputBuscaFornecedor';
   const CotacoesScript_ID_INPUT_BUSCA_PRODUTO = 'CotacoesScript_inputBuscaProduto';
   
-  // Ordem de exibição dos status
+  // Ordem de exibição e definição dos status principais
   const CotacoesScript_ORDEM_STATUS = [
-    "Nova Cotação", "Aguardando Preços", "Finalizado", "Cancelado"
-    // Adicione outros status aqui na ordem desejada
+    "Nova Cotação", 
+    "Aguardando Preços", 
+    "Aguardando Faturamento",
+    "Recebido Parcialmente",
+    "Finalizado", 
+    "Cancelado"
+    // O status "Outros" não precisa estar aqui, ele será tratado automaticamente.
   ];
 
   let CotacoesScript_dadosOpcoesCriacao = null; // Cache para os dados do modal
@@ -507,15 +539,27 @@
   function CotacoesScript_vincularEventosAcordeoes() {
     const accordionHeaders = document.querySelectorAll(`#${CotacoesScript_ID_LISTA_STATUS_COTACOES} .accordion-header`);
     accordionHeaders.forEach(header => {
-      // Remove listener antigo para evitar duplicação
-      header.removeEventListener('click', CotacoesScript_toggleAccordion); 
-      header.addEventListener('click', CotacoesScript_toggleAccordion);
+      // Remove qualquer listener antigo para evitar duplicação de cliques
+      const newHeader = header.cloneNode(true);
+      header.parentNode.replaceChild(newHeader, header);
+
+      // Adiciona o evento de clique da forma correta
+      newHeader.addEventListener('click', (event) => {
+        // Passa o elemento que foi clicado diretamente para a função de toggle
+        CotacoesScript_toggleAccordion(event.currentTarget);
+      });
     });
+  }
+
+  // Crie esta nova função "handler" para o evento de clique
+  function CotacoesScript_toggleAccordionHandler(event) {
+    // Passa o botão que foi clicado (event.currentTarget) para a função original
+    CotacoesScript_toggleAccordion(event.currentTarget);
   }
   
   // --- Funções de Renderização ---
 
-  function CotacoesScript_renderizarResumoCotacao(cotacaoResumo) {
+    function CotacoesScript_renderizarResumoCotacao(cotacaoResumo) {
     // A lógica de renderização permanece a mesma, mas a ação do botão "Abrir" é simplificada
     const itemDiv = document.createElement('div');
     itemDiv.className = 'cotacao-summary-item';
@@ -552,42 +596,56 @@
   
   function CotacoesScript_popularAcordeoes(cotacoesAgrupadasPorStatus) {
     const listaStatusEl = document.getElementById(CotacoesScript_ID_LISTA_STATUS_COTACOES);
-    // Limpa apenas os conteúdos, mantendo a estrutura dos acordeões definidos no HTML
-    listaStatusEl.querySelectorAll('.accordion-content').forEach(el => el.innerHTML = '');
-    listaStatusEl.querySelectorAll('.accordion-item').forEach(el => el.style.display = 'none');
     
-    CotacoesScript_ORDEM_STATUS.forEach(statusNome => {
-        const cotacoesDoStatus = cotacoesAgrupadasPorStatus[statusNome] || [];
-        const idAmigavel = statusNome.toLowerCase().replace(/\s+/g, '-');
-        const countId = `CotacoesScript_count_${statusNome.toLowerCase().replace(/\s+/g, '_')}`;
-        const contentId = `content-${idAmigavel}`;
-        
-        const accordionItem = listaStatusEl.querySelector(`.accordion-item[data-status="${statusNome}"]`);
-        
-        if (cotacoesDoStatus.length > 0 && accordionItem) {
-            accordionItem.style.display = ''; // Mostra o acordeão
-            const contentDiv = document.getElementById(contentId);
-            const countSpan = document.getElementById(countId);
-
-            if (countSpan) countSpan.textContent = `(${cotacoesDoStatus.length})`;
-            
-            // Ordena por data mais recente
-            cotacoesDoStatus.sort((a, b) => new Date(b.Data_Abertura_Formatada.split('/').reverse().join('-')) - new Date(a.Data_Abertura_Formatada.split('/').reverse().join('-')));
-            
-            cotacoesDoStatus.forEach(cotacaoResumo => {
-                const itemHtml = CotacoesScript_renderizarResumoCotacao(cotacaoResumo);
-                if (contentDiv) contentDiv.appendChild(itemHtml);
-            });
-        }
+    // 1. Esconde todos os acordeões para começar
+    listaStatusEl.querySelectorAll('.accordion-item').forEach(el => {
+      el.style.display = 'none';
+      const content = el.querySelector('.accordion-content');
+      if (content) content.innerHTML = '';
+      const count = el.querySelector('.ml-auto.mr-2');
+      if(count) count.textContent = '(0)';
     });
+    
+    // 2. Itera sobre os grupos de dados recebidos (incluindo "Outros")
+    for (const nomeDoGrupo in cotacoesAgrupadasPorStatus) {
+        const cotacoesDoGrupo = cotacoesAgrupadasPorStatus[nomeDoGrupo];
 
+        // 3. Se um grupo tem itens, encontre o acordeão correspondente e mostre-o
+        if (cotacoesDoGrupo && cotacoesDoGrupo.length > 0) {
+            const accordionItem = listaStatusEl.querySelector(`.accordion-item[data-status="${nomeDoGrupo}"]`);
+            
+            if (accordionItem) {
+                accordionItem.style.display = ''; // A MÁGICA ACONTECE AQUI: TORNA O ACORDEÃO VISÍVEL
+                
+                const contentDiv = accordionItem.querySelector('.accordion-content');
+                const countSpan = accordionItem.querySelector('.ml-auto.mr-2');
+
+                if (countSpan) countSpan.textContent = `(${cotacoesDoGrupo.length})`;
+                if (!contentDiv) continue; // Pula para o próximo se o conteúdo não for encontrado
+                
+                // Ordena por data mais recente
+                cotacoesDoGrupo.sort((a, b) => {
+                    const dataA = a.Data_Abertura_Formatada.split('/').reverse().join('-');
+                    const dataB = b.Data_Abertura_Formatada.split('/').reverse().join('-');
+                    return new Date(dataB) - new Date(dataA);
+                });
+                
+                cotacoesDoGrupo.forEach(cotacaoResumo => {
+                    const itemHtml = CotacoesScript_renderizarResumoCotacao(cotacaoResumo);
+                    contentDiv.appendChild(itemHtml);
+                });
+            }
+        }
+    }
+
+    // 4. Re-vincula todos os eventos de clique
     CotacoesScript_vincularEventosAcordeoes();
   }
   
   // --- Lógica de Carregamento e Manipulação de Dados ---
   
   async function CotacoesScript_carregarTodasCotacoes() {
-    // Exibe o estado de loading
+    // Exibe o estado de loading (nenhuma mudança aqui)
     document.querySelectorAll('.accordion-content').forEach(el => {
       el.innerHTML = `<div class="loading-spinner-container">
                         <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -598,13 +656,29 @@
     const resposta = await CotacoesScript_callApi('cotacoes/resumos');
     
     if (resposta.success && Array.isArray(resposta.dados)) {
-      const cotacoesAgrupadas = resposta.dados.reduce((acc, cotacao) => {
+      
+      // --- NOVA LÓGICA DE AGRUPAMENTO ---
+      const gruposFinais = {
+        // Inicializa todos os grupos principais para garantir a ordem
+      };
+      CotacoesScript_ORDEM_STATUS.forEach(status => gruposFinais[status] = []);
+      gruposFinais['Outros'] = []; // Inicializa o grupo "Outros"
+
+      resposta.dados.forEach(cotacao => {
         const status = cotacao.Status_da_Cotacao || "Sem Status";
-        if (!acc[status]) acc[status] = [];
-        acc[status].push(cotacao);
-        return acc;
-      }, {});
-      CotacoesScript_popularAcordeoes(cotacoesAgrupadas);
+        
+        // Se o status da cotação é um dos principais, coloque no grupo correspondente.
+        if (CotacoesScript_ORDEM_STATUS.includes(status)) {
+          gruposFinais[status].push(cotacao);
+        } else {
+          // Senão, jogue no grupo "Outros".
+          gruposFinais['Outros'].push(cotacao);
+        }
+      });
+      
+      // Envia os dados já agrupados corretamente para a função que popula o HTML
+      CotacoesScript_popularAcordeoes(gruposFinais);
+
     } else {
       const errorMsg = resposta.message || "Falha ao carregar resumos das cotações.";
       CotacoesScript_exibirFeedbackGlobal(errorMsg, true);
@@ -666,7 +740,11 @@
       items.forEach((item, index) => {
           const itemValue = typeof item === 'object' ? (usarNomeComoValor ? item.nome : item.id) : item; 
           const itemName = typeof item === 'object' ? item.nome : item;
-          label.className = 'items-center space-x-2 text-sm text-gray-700 py-1';
+
+          // A LINHA FALTANTE ESTÁ AQUI:
+          const label = document.createElement('label'); // <--- CORREÇÃO
+
+          label.className = 'flex items-center space-x-2 text-sm text-gray-700 py-1'; // Modificado para 'flex' para garantir alinhamento
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
           checkbox.name = `${namePrefix}_${index}`;
