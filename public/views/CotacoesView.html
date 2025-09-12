@@ -587,8 +587,8 @@
         event.stopPropagation();
         const id = event.currentTarget.dataset.cotacaoId;
 
-        // Monta a URL para a nova guia. Como usamos "cleanUrls", não precisamos do .html
-        const url = `/views/CotacaoIndividualView?idCotacao=${id}`;
+        // CORREÇÃO: A URL agora aponta para o arquivo .html correto.
+        const url = `/views/CotacaoIndividualView.html?idCotacao=${id}`;
 
         // Usa window.open() para abrir a URL em uma nova guia ('_blank')
         window.open(url, '_blank');

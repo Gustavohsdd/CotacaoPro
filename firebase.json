@@ -23,24 +23,23 @@
     "rules": "storage.rules"
   },
   "hosting": {
-  "public": "public",
-  "ignore": [
-    "firebase.json",
-    "**/.*",
-    "**/node_modules/**"
-  ],
-"rewrites": [
-  {
-    "source": "/api/**",
-    "function": "api"
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "function": "api"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
   },
-  {
-    "source": "!/views/**",
-    "destination": "/index.html"
-  }
-]
-
-},
   "emulators": {
     "auth": {
       "port": 9109
