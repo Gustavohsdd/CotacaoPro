@@ -559,8 +559,7 @@
   
   // --- Funções de Renderização ---
 
-    function CotacoesScript_renderizarResumoCotacao(cotacaoResumo) {
-    // A lógica de renderização permanece a mesma, mas a ação do botão "Abrir" é simplificada
+  function CotacoesScript_renderizarResumoCotacao(cotacaoResumo) {
     const itemDiv = document.createElement('div');
     itemDiv.className = 'cotacao-summary-item';
     itemDiv.dataset.cotacaoId = cotacaoResumo.ID_da_Cotacao;
@@ -582,13 +581,17 @@
       </div>
     `;
     
-    // Adiciona evento ao botão "Abrir"
+    // Ação para abrir em NOVA GUIA
     const btnAbrir = itemDiv.querySelector('.btn-abrir-cotacao');
     btnAbrir.addEventListener('click', (event) => {
         event.stopPropagation();
         const id = event.currentTarget.dataset.cotacaoId;
-        // Ação temporária: A navegação para a página de edição será implementada futuramente
-        CotacoesScript_exibirFeedbackGlobal(`Funcionalidade "Abrir Cotação ${id}" ainda não implementada.`, false);
+
+        // Monta a URL para a nova guia. Como usamos "cleanUrls", não precisamos do .html
+        const url = `/views/CotacaoIndividualView?idCotacao=${id}`;
+
+        // Usa window.open() para abrir a URL em uma nova guia ('_blank')
+        window.open(url, '_blank');
     });
 
     return itemDiv;
