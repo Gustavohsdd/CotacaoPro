@@ -136,6 +136,7 @@ async function cotacaoindividual_criarMapaEstoqueMinimoProdutos() {
 async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
     logger.info(`cotacaoindividual_buscarProdutosPorIdCotacao: Buscando produtos para ID '${idCotacaoAlvo}'.`);
     
+    // As funções para criar mapas de estoque e demanda continuam as mesmas
     const [mapaEstoqueMinimo, mapaDemandaMedia] = await Promise.all([
         cotacaoindividual_criarMapaEstoqueMinimoProdutos(),
         cotacaoindividual_criarMapaDemandaMediaProdutos()
@@ -148,41 +149,59 @@ async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
 
         if (!docSnap.exists) {
             logger.warn(`Cotação com ID '${idCotacaoAlvo}' não encontrada.`);
-            return [];
+            return { produtos: [], dataAbertura: null };
         }
 
         const cotacao = docSnap.data();
-        const itens = (cotacao.produtos || []).reduce((acc, produtoGrupo) => {
-            if (produtoGrupo.itens && Array.isArray(produtoGrupo.itens)) {
-                acc.push(...produtoGrupo.itens);
-            }
-            return acc;
-        }, []);
 
-        const itensEnriquecidos = itens.map(item => {
-            const nomeProdutoPrincipal = item.Produto ? String(item.Produto).trim() : null;
-            let estoqueMinimo = null;
-            let demandaMedia = null;
+        // Verificamos se a estrutura 'produtos' com 'itens' aninhados existe
+        if (!cotacao.produtos || !Array.isArray(cotacao.produtos)) {
+            logger.warn(`Cotação ID '${idCotacaoAlvo}' não possui a estrutura de produtos aninhados esperada.`);
+            return { produtos: [], dataAbertura: cotacao['Data Abertura'] || null };
+        }
 
-            if (nomeProdutoPrincipal) {
-                estoqueMinimo = mapaEstoqueMinimo.hasOwnProperty(nomeProdutoPrincipal)
-                    ? mapaEstoqueMinimo[nomeProdutoPrincipal]
-                    : null;
-                demandaMedia = mapaDemandaMedia.hasOwnProperty(nomeProdutoPrincipal)
-                    ? mapaDemandaMedia[nomeProdutoPrincipal]
-                    : null;
-            }
+        // Itera sobre a estrutura aninhada para enriquecer os dados sem achatar a lista
+        const produtosEnriquecidos = cotacao.produtos.map(grupoProduto => {
+            const nomeProdutoPrincipal = grupoProduto.Produto ? String(grupoProduto.Produto).trim() : null;
 
+            const itensEnriquecidos = (grupoProduto.itens || []).map(item => {
+                let estoqueMinimo = null;
+                let demandaMedia = null;
+
+                if (nomeProdutoPrincipal) {
+                    estoqueMinimo = mapaEstoqueMinimo.hasOwnProperty(nomeProdutoPrincipal)
+                        ? mapaEstoqueMinimo[nomeProdutoPrincipal]
+                        : null;
+                    demandaMedia = mapaDemandaMedia.hasOwnProperty(nomeProdutoPrincipal)
+                        ? mapaDemandaMedia[nomeProdutoPrincipal]
+                        : null;
+                }
+                
+                // Retorna o item com os novos campos e a referência ao produto original
+                return {
+                    ...item,
+                    Produto: nomeProdutoPrincipal, // Garante que o nome do produto principal está no item
+                    EstoqueMinimoProdutoPrincipal: estoqueMinimo,
+                    DemandaMediaProdutoPrincipal: demandaMedia,
+                    _subProdutoOriginalPersistido: item.SubProduto || item.Subproduto || null // Garante consistência
+                };
+            });
+            
+            // Retorna o grupo do produto com seus itens já enriquecidos
             return {
-                ...item,
-                EstoqueMinimoProdutoPrincipal: estoqueMinimo,
-                DemandaMediaProdutoPrincipal: demandaMedia,
-                _subProdutoOriginalPersistido: item.SubProduto || null
+                ...grupoProduto,
+                itens: itensEnriquecidos
             };
         });
+        
+        const dataAbertura = cotacao['Data Abertura'] ? cotacao['Data Abertura'].toDate().toISOString() : null;
 
-        logger.info(`cotacaoindividual_buscarProdutosPorIdCotacao: ${itensEnriquecidos.length} produtos encontrados e enriquecidos para ID '${idCotacaoAlvo}'.`);
-        return itensEnriquecidos;
+        logger.info(`cotacaoindividual_buscarProdutosPorIdCotacao: ${produtosEnriquecidos.length} grupos de produtos encontrados e enriquecidos para ID '${idCotacaoAlvo}'.`);
+        
+        return {
+            produtos: produtosEnriquecidos,
+            dataAbertura: dataAbertura
+        };
 
     } catch (e) {
         logger.error(`ERRO em cotacaoindividual_buscarProdutosPorIdCotacao para ID "${idCotacaoAlvo}":`, e);
@@ -208,16 +227,18 @@ cotacaoindividualRouter.post('/cotacaoindividual/detalhes', async (req, res) => 
             return res.status(400).json({ success: false, message: "ID da Cotação não fornecido." });
         }
         
-        const produtosDaCotacao = await cotacaoindividual_buscarProdutosPorIdCotacao(idCotacao);
+        const resultado = await cotacaoindividual_buscarProdutosPorIdCotacao(idCotacao);
 
-        if (produtosDaCotacao === null) {
+        if (resultado === null) {
             return res.status(500).json({ success: false, message: `Falha ao buscar produtos para cotação ID ${idCotacao}.` });
         }
         
+        // CORREÇÃO: Enviamos os dados já agrupados e a data de abertura
         res.status(200).json({
             success: true,
-            dados: produtosDaCotacao,
-            cabecalhos: ["SubProduto", "Fornecedor", "Tamanho", "UN", "Fator", "Preço", "Preço por Fator", "Comprar", "Valor Total", "Economia em Cotação", "Empresa Faturada", "Condição de Pagamento"], // Enviando cabeçalhos para consistência
+            dados: resultado.produtos, // A estrutura aninhada de produtos e itens
+            dataAbertura: resultado.dataAbertura,
+            cabecalhos: ["SubProduto", "Fornecedor", "Tamanho", "UN", "Fator", "Preço", "Preço por Fator", "Comprar", "Valor Total", "Economia em Cotação", "Empresa Faturada", "Condição de Pagamento"],
             message: `Dados da cotação ${idCotacao} carregados com sucesso.`
         });
     } catch (error) {
