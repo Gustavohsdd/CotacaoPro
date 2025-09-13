@@ -260,61 +260,106 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res
         }
 
         const db = admin.firestore();
-        const docRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
+        const cotacaoDocRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
         
+        // Colunas que, quando alteradas, devem ser sincronizadas com a coleção de subprodutos.
+        const COLUNAS_SINCRONIZAVEIS_COM_SUBPRODUTOS = ['SubProduto', 'Tamanho', 'UN', 'Fator'];
+
+        let resultadoFinal = {};
+
         await db.runTransaction(async (transaction) => {
-            const docSnap = await transaction.get(docRef);
+            const docSnap = await transaction.get(cotacaoDocRef);
             if (!docSnap.exists) {
                 throw new Error("Cotação não encontrada.");
             }
 
-            const cotacao = docSnap.data();
-            const itens = cotacao.itens || [];
-            
-            const itemIndex = itens.findIndex(item =>
-                item.Produto === identificadoresLinha.Produto &&
-                item.SubProduto === identificadoresLinha.SubProdutoChave &&
-                item.Fornecedor === identificadoresLinha.Fornecedor
-            );
+            const cotacaoData = docSnap.data();
+            const produtosArray = cotacaoData.produtos || [];
+            let itemAtualizado = false;
+            let novoSubProdutoNome = null;
 
-            if (itemIndex === -1) {
-                throw new Error("Item específico não encontrado na cotação para atualizar.");
+            // Encontra e atualiza o item dentro da estrutura aninhada da cotação
+            const produtosAtualizados = produtosArray.map(grupoProduto => {
+                if (grupoProduto.Produto === identificadoresLinha.Produto) {
+                    const itemIndex = (grupoProduto.itens || []).findIndex(item =>
+                        (item.SubProduto || item.Subproduto) === identificadoresLinha.SubProdutoChave &&
+                        item.Fornecedor === identificadoresLinha.Fornecedor
+                    );
+
+                    if (itemIndex !== -1) {
+                        const itensAtualizados = [...grupoProduto.itens];
+                        const itemOriginal = itensAtualizados[itemIndex];
+                        
+                        // Converte o novo valor para número, se aplicável
+                        const camposNumericos = ['Preço', 'Comprar', 'Fator'];
+                        const valorFinal = camposNumericos.includes(colunaAlterada)
+                            ? cotacaoindividual_parseNumeroPtBr(novoValor)
+                            : novoValor;
+
+                        itensAtualizados[itemIndex] = { ...itemOriginal, [colunaAlterada]: valorFinal };
+
+                        // Recalcula campos dependentes se uma coluna "gatilho" foi alterada
+                        const colunasTriggerCalculo = ['Preço', 'Comprar', 'Fator'];
+                        if (colunasTriggerCalculo.includes(colunaAlterada)) {
+                            const preco = cotacaoindividual_parseNumeroPtBr(itensAtualizados[itemIndex]['Preço']) || 0;
+                            const comprar = cotacaoindividual_parseNumeroPtBr(itensAtualizados[itemIndex]['Comprar']) || 0;
+                            const fator = cotacaoindividual_parseNumeroPtBr(itensAtualizados[itemIndex]['Fator']) || 0;
+
+                            itensAtualizados[itemIndex]['Valor Total'] = preco * comprar;
+                            itensAtualizados[itemIndex]['Preço por Fator'] = (fator !== 0) ? (preco / fator) : 0;
+                        }
+                        
+                        // Se o nome do SubProduto mudou, precisamos do novo nome para o retorno
+                        if (colunaAlterada === 'SubProduto') {
+                           novoSubProdutoNome = novoValor;
+                        }
+                        
+                        itemAtualizado = true;
+                        resultadoFinal.valoresCalculados = {
+                           valorTotal: itensAtualizados[itemIndex]['Valor Total'],
+                           precoPorFator: itensAtualizados[itemIndex]['Preço por Fator']
+                        };
+                        
+                        return { ...grupoProduto, itens: itensAtualizados };
+                    }
+                }
+                return grupoProduto;
+            });
+
+            if (!itemAtualizado) {
+                throw new Error("Item específico não foi encontrado na cotação para ser atualizado.");
             }
 
-            const itemAtualizado = { ...itens[itemIndex] };
-            itemAtualizado[colunaAlterada] = novoValor;
+            // Atualiza o documento da cotação com o array de produtos modificado
+            transaction.update(cotacaoDocRef, { produtos: produtosAtualizados });
             
-            const colunasTriggerCalculo = ['Preço', 'Comprar', 'Fator'];
-            let valoresCalculados = {};
+            // Lógica para sincronizar com a coleção 'subprodutos'
+            if (COLUNAS_SINCRONIZAVEIS_COM_SUBPRODUTOS.includes(colunaAlterada)) {
+                const subProdutosQuery = await db.collection(SUBPRODUTOS_COLLECTION)
+                    .where('Produto Vinculado', '==', identificadoresLinha.Produto)
+                    .where('SubProduto', '==', identificadoresLinha.SubProdutoChave)
+                    .where('Fornecedor', '==', identificadoresLinha.Fornecedor)
+                    .limit(1)
+                    .get();
 
-            if (colunasTriggerCalculo.includes(colunaAlterada) || (colunaAlterada === "SubProduto" && identificadoresLinha.SubProdutoChave !== novoValor)) {
-                const preco   = cotacaoindividual_parseNumeroPtBr(itemAtualizado['Preço'])   || 0;
-                const comprar = cotacaoindividual_parseNumeroPtBr(itemAtualizado['Comprar']) || 0;
-                const fator   = cotacaoindividual_parseNumeroPtBr(itemAtualizado['Fator'])   || 0;
-
-                itemAtualizado['Valor Total'] = preco * comprar;
-                itemAtualizado['Preço por Fator'] = (fator !== 0) ? (preco / fator) : 0;
-                
-                valoresCalculados = {
-                    valorTotal: itemAtualizado['Valor Total'],
-                    precoPorFator: itemAtualizado['Preço por Fator']
-                };
+                if (!subProdutosQuery.empty) {
+                    const subProdutoDocRef = subProdutosQuery.docs[0].ref;
+                    const atualizacao = { [colunaAlterada]: novoValor };
+                    transaction.update(subProdutoDocRef, atualizacao);
+                    logger.info(`Sincronização: Subproduto ${subProdutoDocRef.id} atualizado com { ${colunaAlterada}: "${novoValor}" }.`);
+                } else {
+                     logger.warn(`Sincronização: Subproduto correspondente não encontrado para ${JSON.stringify(identificadoresLinha)}.`);
+                }
             }
-            
-            itens[itemIndex] = itemAtualizado;
-            transaction.update(docRef, { itens: itens });
-
-            res.locals.valoresCalculados = valoresCalculados;
-            if (colunaAlterada === 'SubProduto') {
-                res.locals.novoSubProdutoNomeSeAlterado = novoValor;
+             if (novoSubProdutoNome) {
+                resultadoFinal.novoSubProdutoNomeSeAlterado = novoSubProdutoNome;
             }
         });
         
         res.status(200).json({ 
             success: true, 
-            message: `Coluna '${colunaAlterada}' atualizada.`,
-            valoresCalculados: res.locals.valoresCalculados,
-            novoSubProdutoNomeSeAlterado: res.locals.novoSubProdutoNomeSeAlterado
+            message: `Coluna '${colunaAlterada}' atualizada com sucesso.`,
+            ...resultadoFinal
         });
 
     } catch (error) {
