@@ -350,11 +350,11 @@
     }
 
     .produto-group-separator-row td {
-      background-color: #dbeafe;
+      background-color: #b3d0f3;
       padding: 0.6rem 1rem;
       font-weight: 600;
       color: #1e3a8a;
-      border-bottom: 1px solid #93c5fd;
+      border-bottom: 1px solid #6babf3;
       white-space: normal;
     }
 
@@ -805,6 +805,42 @@
     .hidden-by-category {
       display: none;
     }
+
+    .produto-group-separator-row td .contagem-fields-container {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 15px;
+    }
+
+    .produto-group-separator-row td .contagem-field-block {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .produto-group-separator-row td .campo-contagem-label {
+      font-weight: normal;
+      color: #1f2937;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .produto-group-separator-row td .campo-contagem-valor {
+      font-weight: 600;
+      color: #1D4ED8;
+      /* Azul */
+      font-size: 0.9rem;
+      background-color: #eef2ff;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+
+    .produto-group-separator-row td .campo-contagem-valor.negativo {
+      color: #991B1B;
+      /* Vermelho */
+      background-color: #FEE2E2;
+    }
   </style>
 </head>
 
@@ -1082,9 +1118,9 @@
         const stringLimpa = s.replace(/[^\d,.-]/g, '');
 
         const normalizado = stringLimpa
-            .replace(/\s+/g, '')                      // Remove espaços (segunda garantia)
-            .replace(/\.(?=\d{3}(?:,|$))/g, '')      // Remove o ponto de milhar
-            .replace(',', '.');                       // Troca a vírgula decimal por ponto
+          .replace(/\s+/g, '')                      // Remove espaços (segunda garantia)
+          .replace(/\.(?=\d{3}(?:,|$))/g, '')      // Remove o ponto de milhar
+          .replace(',', '.');                       // Troca a vírgula decimal por ponto
 
         const n = Number(normalizado);
         return Number.isFinite(n) ? n : NaN;
@@ -1216,16 +1252,20 @@
         }
       }
 
-      function cotacaoindividual_atualizarGrupoDeCalculosCliente(trEditada) {
-        const nomeProdutoPrincipal = trEditada.dataset.produto;
+      function cotacaoindividual_atualizarGrupoDeCalculosCliente(trEditadaOuHeader) {
+        const isHeader = trEditadaOuHeader.classList.contains('produto-group-separator-row');
+        const nomeProdutoPrincipal = isHeader ? trEditadaOuHeader.dataset.produtoNome : trEditadaOuHeader.dataset.produto;
+
         if (!nomeProdutoPrincipal) return;
 
-        const tbody = trEditada.closest('tbody');
+        const tbody = trEditadaOuHeader.closest('tbody');
         const todasLinhasDoGrupo = tbody.querySelectorAll(`tr.sub-produto-row[data-produto="${nomeProdutoPrincipal}"]`);
+        const headerRow = tbody.querySelector(`tr.produto-group-separator-row[data-produto-nome="${nomeProdutoPrincipal}"]`);
+
+        if (!headerRow) return;
 
         const lerValorDaLinha = (tr, coluna) => {
           const cell = tr.querySelector(`td[data-coluna="${coluna}"]`);
-          // Esta é a correção crucial: lê o valor do input se ele existir, senão, do texto da célula.
           const valorTexto = cell ? (cell.querySelector('input')?.value || cell.dataset.valorOriginal || cell.textContent || '0') : '0';
           return cotacaoindividual_parseNumeroPtBr(valorTexto);
         };
@@ -1238,14 +1278,16 @@
               maximumFractionDigits: casasDecimais
             });
             cell.textContent = valorFormatado;
-            cell.dataset.valorOriginal = valorFormatado; // Atualiza o valor original para o novo valor calculado
+            cell.dataset.valorOriginal = valorFormatado;
           }
         };
 
+        let totalComprar = 0;
         todasLinhasDoGrupo.forEach(tr => {
           const preco = lerValorDaLinha(tr, "Preço");
           const fator = lerValorDaLinha(tr, "Fator");
           const comprar = lerValorDaLinha(tr, "Comprar");
+          totalComprar += comprar;
 
           const precoPorFator = fator > 0 ? (preco / fator) : 0;
           escreverValorNaLinha(tr, "Preço por Fator", precoPorFator, 4);
@@ -1253,6 +1295,45 @@
           const valorTotal = preco * comprar;
           escreverValorNaLinha(tr, "Valor Total", valorTotal, 2);
         });
+
+        // Atualizar o cabeçalho
+        const grupoOriginal = CotacaoIndividualScript_dadosOriginaisCotacao.find(g => g.Produto === nomeProdutoPrincipal);
+        if (grupoOriginal) {
+          const estoqueAtual = grupoOriginal.estoqueAtualProdutoPrincipal || 0;
+          const saldoEstoque = estoqueAtual - totalComprar;
+
+          const saldoSpan = headerRow.querySelector('[data-role="saldo-estoque"]');
+          if (saldoSpan) {
+            saldoSpan.textContent = `${estoqueAtual.toFixed(2)} / ${totalComprar.toFixed(2)}`;
+            saldoSpan.classList.toggle('negativo', saldoEstoque < 0);
+          }
+        }
+
+        // Recalcular e atualizar métricas de negociação no cabeçalho
+        const precosPorFator = Array.from(todasLinhasDoGrupo).map(tr => lerValorDaLinha(tr, 'Preço por Fator')).filter(p => p > 0).sort((a, b) => a - b);
+        const demandaMedia = grupoOriginal ? (cotacaoindividual_parseNumeroPtBr(grupoOriginal.demandaMediaProdutoPrincipal) || 0) : 0;
+
+        let oportunidadeReais = 0;
+        let spreadPercent = 0;
+
+        if (precosPorFator.length >= 2) {
+          const p1 = precosPorFator[0];
+          const p2 = precosPorFator[1];
+          const mid = Math.floor(precosPorFator.length / 2);
+          const pMediana = precosPorFator.length % 2 === 0 ? (precosPorFator[mid - 1] + precosPorFator[mid]) / 2 : precosPorFator[mid];
+
+          if (demandaMedia > 0 && pMediana > p1) {
+            oportunidadeReais = (pMediana - p1) * demandaMedia;
+          }
+          spreadPercent = ((p2 - p1) / p1) * 100;
+        }
+
+        const metricasSpan = headerRow.querySelector('[data-role="metricas-negociacao"]');
+        if (metricasSpan) {
+          const oportunidadeFormatada = cotacaoindividual_formatarPreco(oportunidadeReais);
+          const spreadFormatado = spreadPercent.toFixed(2) + '%';
+          metricasSpan.textContent = `Oportunidade: ${oportunidadeFormatada} | Spread: ${spreadFormatado}`;
+        }
       }
 
 
@@ -1313,17 +1394,66 @@
           agrupadoPorCategoria[nomeCategoria].forEach(grupoProduto => {
             const produtoRow = tbody.insertRow();
             produtoRow.className = 'produto-group-separator-row';
+            produtoRow.dataset.produtoNome = grupoProduto.Produto; // Adiciona para referência
             const produtoCell = produtoRow.insertCell();
             produtoCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
-            produtoCell.innerHTML = `
-                        <div class="contagem-container-principal">
-                            <span class="produto-principal-info">${grupoProduto.Produto}</span>
-                             <button class="info-badge clickable negociacao-btn" data-produto-nome="${grupoProduto.Produto}">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 5h2v8h-2V8zm-4 0h2v8H9V8z"/></svg>
-                                <span>Negociação</span>
-                            </button>
-                        </div>
-                    `;
+
+            const wrap = document.createElement('div');
+            wrap.className = 'contagem-container-principal';
+
+            const info = document.createElement('div');
+            info.className = 'produto-principal-info';
+            info.textContent = grupoProduto.Produto;
+
+            const actions = document.createElement('div');
+            actions.className = 'contagem-fields-container';
+
+            const estMinimo = grupoProduto.estoqueMinimoProdutoPrincipal !== null ? parseFloat(grupoProduto.estoqueMinimoProdutoPrincipal).toFixed(2) : 'N/A';
+            const demandaMedia = grupoProduto.demandaMediaProdutoPrincipal !== null ? parseFloat(grupoProduto.demandaMediaProdutoPrincipal).toFixed(2) : 'N/A';
+
+            let totalComprar = 0;
+            grupoProduto.itens.forEach(item => {
+              const comprarValor = cotacaoindividual_parseNumeroPtBr(item.Comprar);
+              if (!isNaN(comprarValor)) {
+                totalComprar += comprarValor;
+              }
+            });
+
+            const estoqueAtual = grupoProduto.estoqueAtualProdutoPrincipal !== null ? parseFloat(grupoProduto.estoqueAtualProdutoPrincipal) : 0;
+            const saldoEstoque = estoqueAtual - totalComprar;
+
+            actions.innerHTML = `
+                <div class="contagem-field-block">
+                    <span class="campo-contagem-label">Est. Mínimo:</span>
+                    <span class="campo-contagem-valor">${estMinimo}</span>
+                </div>
+                <div class="contagem-field-block">
+                    <span class="campo-contagem-label">Demanda Média:</span>
+                    <span class="campo-contagem-valor">${demandaMedia}</span>
+                </div>
+                <div class="contagem-field-block">
+                    <span class="campo-contagem-label">Est. Atual / Comprar:</span>
+                    <span class="campo-contagem-valor ${saldoEstoque < 0 ? 'negativo' : ''}" data-role="saldo-estoque">${estoqueAtual.toFixed(2)} / ${totalComprar.toFixed(2)}</span>
+                </div>
+            `;
+
+            const btnNeg = document.createElement('button');
+            btnNeg.className = 'info-badge clickable negociacao-btn';
+            btnNeg.dataset.produtoNome = grupoProduto.Produto;
+            btnNeg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 5h2v8h-2V8zm-4 0h2v8H9V8z"/></svg><span>Negociação</span>`;
+            actions.appendChild(btnNeg);
+
+            // Lógica para Oportunidade e Spread (cálculo inicial)
+            // Esta parte será movida para uma função de cálculo para ser reutilizável
+            const metricasSpan = document.createElement('span');
+            metricasSpan.className = 'info-badge indicador-oportunidade';
+            metricasSpan.dataset.role = 'metricas-negociacao';
+            metricasSpan.textContent = 'Calculando...'; // Placeholder
+            actions.appendChild(metricasSpan);
+
+            wrap.appendChild(info);
+            wrap.appendChild(actions);
+            produtoCell.appendChild(wrap);
             contentRows.push(produtoRow);
 
             if (grupoProduto.itens && Array.isArray(grupoProduto.itens)) {
@@ -1364,6 +1494,8 @@
                 contentRows.push(subProdutoRow);
               });
             }
+            // Após renderizar os itens, atualizamos os cálculos do cabeçalho
+            cotacaoindividual_atualizarGrupoDeCalculosCliente(produtoRow);
           });
 
           categoriaRow.addEventListener('click', () => {
@@ -1377,7 +1509,7 @@
             });
           });
         });
-        // Adicionar listeners aos botões de negociação recém-criados
+
         document.querySelectorAll('.negociacao-btn').forEach(button => {
           button.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -1539,6 +1671,225 @@
       document.addEventListener('DOMContentLoaded', inicializarPagina);
 
     })();
+
+    function CotacaoIndividualScript_calcularMetricasNegociacao(grupo) {
+      const resultado = {
+        oportunidadeReais: 0,
+        spreadPercent: 0,
+      };
+
+      if (!grupo || !grupo.itens || grupo.itens.length < 2) {
+        return resultado;
+      }
+
+      // 1. Calcular todos os preços por fator válidos e ordená-los
+      const precosPorFatorValidos = grupo.itens
+        .map(item => {
+          const preco = cotacaoindividual_parseNumeroPtBr(item["Preço"]);
+          const fator = cotacaoindividual_parseNumeroPtBr(item["Fator"]);
+          if (!isNaN(preco) && !isNaN(fator) && fator > 0) {
+            return preco / fator;
+          }
+          return null;
+        })
+        .filter(p => p !== null && p > 0)
+        .sort((a, b) => a - b);
+
+      if (precosPorFatorValidos.length < 2) {
+        return resultado;
+      }
+
+      // 2. Definir P1, P2 e a Mediana
+      const p1 = precosPorFatorValidos[0];
+      const p2 = precosPorFatorValidos[1];
+
+      const mid = Math.floor(precosPorFatorValidos.length / 2);
+      const pMediana = precosPorFatorValidos.length % 2 === 0
+        ? (precosPorFatorValidos[mid - 1] + precosPorFatorValidos[mid]) / 2
+        : precosPorFatorValidos[mid];
+
+      // 3. Obter a quantidade base (Q) usando a Demanda Média
+      const quantidadeBase = cotacaoindividual_parseNumeroPtBr(grupo.demandaMediaProdutoPrincipal);
+
+      // 4. Calcular Oportunidade (R$)
+      if (!isNaN(quantidadeBase) && quantidadeBase > 0 && pMediana > p1) {
+        resultado.oportunidadeReais = (pMediana - p1) * quantidadeBase;
+      }
+
+      // 5. Calcular Spread (%)
+      if (p1 > 0 && p2) {
+        resultado.spreadPercent = ((p2 - p1) / p1) * 100;
+      }
+
+      return resultado;
+    }
+
+    // AGORA, SUBSTITUA A SUA FUNÇÃO `cotacaoindividual_renderizarGruposDeProdutos` EXISTENTE POR ESTA VERSÃO
+    function cotacaoindividual_renderizarGruposDeProdutos(dadosAgrupados) {
+      const tabela = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO);
+      if (!tabela) return;
+      const tbody = tabela.querySelector('tbody');
+      tbody.innerHTML = '';
+
+      if (!dadosAgrupados || dadosAgrupados.length === 0) {
+        const tr = tbody.insertRow();
+        const td = tr.insertCell();
+        td.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length || 1;
+        td.className = 'text-center p-8 text-gray-500';
+        td.textContent = 'Nenhum produto para esta cotação.';
+        return;
+      }
+
+      const agrupadoPorCategoria = dadosAgrupados.reduce((acc, produto) => {
+        const categoria = (produto.itens && produto.itens[0]?.Categoria) ? produto.itens[0].Categoria : 'Sem Categoria';
+        if (!acc[categoria]) {
+          acc[categoria] = [];
+        }
+        acc[categoria].push(produto);
+        return acc;
+      }, {});
+
+      const categoriasOrdenadas = Object.keys(agrupadoPorCategoria).sort();
+
+      categoriasOrdenadas.forEach(nomeCategoria => {
+        const categoriaRow = tbody.insertRow();
+        categoriaRow.className = 'categoria-accordion-header-row expanded';
+        const categoriaCell = categoriaRow.insertCell();
+        categoriaCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
+        categoriaCell.innerHTML = `
+                    <div class="categoria-header-content">
+                        <svg class="categoria-accordion-icon" style="transform: rotate(90deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        <span>${nomeCategoria}</span>
+                    </div>
+                `;
+
+        const contentRows = [];
+
+        agrupadoPorCategoria[nomeCategoria].forEach(grupoProduto => {
+          const produtoRow = tbody.insertRow();
+          produtoRow.className = 'produto-group-separator-row';
+          produtoRow.dataset.produtoNome = grupoProduto.Produto;
+          const produtoCell = produtoRow.insertCell();
+          produtoCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
+
+          const wrap = document.createElement('div');
+          wrap.className = 'contagem-container-principal';
+
+          const info = document.createElement('div');
+          info.className = 'produto-principal-info';
+          info.textContent = grupoProduto.Produto;
+
+          const actions = document.createElement('div');
+          actions.className = 'contagem-fields-container';
+
+          const estMinimo = grupoProduto.estoqueMinimoProdutoPrincipal !== null ? parseFloat(grupoProduto.estoqueMinimoProdutoPrincipal).toFixed(2) : 'N/A';
+          const demandaMedia = grupoProduto.demandaMediaProdutoPrincipal !== null ? parseFloat(grupoProduto.demandaMediaProdutoPrincipal).toFixed(2) : 'N/A';
+
+          let totalComprar = 0;
+          if (grupoProduto.itens && Array.isArray(grupoProduto.itens)) {
+            grupoProduto.itens.forEach(item => {
+              const comprarValor = cotacaoindividual_parseNumeroPtBr(item.Comprar);
+              if (!isNaN(comprarValor)) {
+                totalComprar += comprarValor;
+              }
+            });
+          }
+
+          const estoqueAtual = grupoProduto.estoqueAtualProdutoPrincipal !== null ? parseFloat(grupoProduto.estoqueAtualProdutoPrincipal) : 0;
+          const saldoEstoque = estoqueAtual - totalComprar;
+
+          const metricas = CotacaoIndividualScript_calcularMetricasNegociacao(grupoProduto);
+          const oportunidadeFormatada = cotacaoindividual_formatarPreco(metricas.oportunidadeReais);
+          const spreadFormatado = metricas.spreadPercent.toFixed(2) + '%';
+
+          actions.innerHTML = `
+                <div class="contagem-field-block">
+                    <span class="campo-contagem-label">Est. Mínimo:</span>
+                    <span class="campo-contagem-valor">${estMinimo}</span>
+                </div>
+                <div class="contagem-field-block">
+                    <span class="campo-contagem-label">Demanda Média:</span>
+                    <span class="campo-contagem-valor">${demandaMedia}</span>
+                </div>
+                <div class="contagem-field-block">
+                    <span class="campo-contagem-label">Est. Atual / Comprar:</span>
+                    <span class="campo-contagem-valor ${saldoEstoque < 0 ? 'negativo' : ''}" data-role="saldo-estoque">${estoqueAtual.toFixed(2)} / ${totalComprar.toFixed(2)}</span>
+                </div>
+                <span class="info-badge indicador-oportunidade" data-role="metricas-negociacao">Oportunidade: ${oportunidadeFormatada} | Spread: ${spreadFormatado}</span>
+            `;
+
+          const btnNeg = document.createElement('button');
+          btnNeg.className = 'info-badge clickable negociacao-btn';
+          btnNeg.dataset.produtoNome = grupoProduto.Produto;
+          btnNeg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 5h2v8h-2V8zm-4 0h2v8H9V8z"/></svg><span>Negociação</span>`;
+          actions.appendChild(btnNeg);
+
+          wrap.appendChild(info);
+          wrap.appendChild(actions);
+          produtoCell.appendChild(wrap);
+          contentRows.push(produtoRow);
+
+          if (grupoProduto.itens && Array.isArray(grupoProduto.itens)) {
+            grupoProduto.itens.forEach(item => {
+              const subProdutoRow = tbody.insertRow();
+              subProdutoRow.className = 'sub-produto-row';
+              subProdutoRow.dataset.produto = item.Produto;
+              subProdutoRow.dataset.fornecedor = item.Fornecedor;
+              subProdutoRow.dataset.subprodutoOriginalPersistido = item._subProdutoOriginalPersistido;
+
+              CotacaoIndividualScript_cabecalhosVisiveis.forEach(cabecalho => {
+                const td = subProdutoRow.insertCell();
+                let valor = item[cabecalho];
+                if (valor === undefined || valor === null) valor = '';
+
+                if (['Preço', 'Preço por Fator', 'Valor Total'].includes(cabecalho)) {
+                  td.textContent = cotacaoindividual_formatarPreco(valor);
+                } else if (['Fator', 'Comprar'].includes(cabecalho)) {
+                  const num = cotacaoindividual_parseNumeroPtBr(valor);
+                  td.textContent = !isNaN(num) ? num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '';
+                } else {
+                  td.textContent = valor;
+                }
+
+                td.dataset.coluna = cabecalho;
+                td.dataset.valorOriginal = td.textContent;
+
+                const colunasEditaveis = ["SubProduto", "Tamanho", "UN", "Fator", "Preço", "Comprar"];
+                if (colunasEditaveis.includes(cabecalho)) {
+                  td.classList.add('editable-price-cell');
+                  td.addEventListener('click', cotacaoindividual_transformarCelulaEmInput);
+                }
+
+                if (CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]) {
+                  td.classList.add(CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]);
+                }
+              });
+              contentRows.push(subProdutoRow);
+            });
+          }
+        });
+
+        categoriaRow.addEventListener('click', () => {
+          const isExpanded = categoriaRow.classList.toggle('expanded');
+          const icon = categoriaRow.querySelector('.categoria-accordion-icon');
+          if (icon) {
+            icon.style.transform = isExpanded ? 'rotate(90deg)' : 'rotate(0deg)';
+          }
+          contentRows.forEach(row => {
+            row.classList.toggle('hidden-by-category', !isExpanded);
+          });
+        });
+      });
+
+      document.querySelectorAll('.negociacao-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const produtoNome = event.currentTarget.dataset.produtoNome;
+          cotacaoindividual_abrirModalNegociacao(produtoNome);
+        });
+      });
+    }
+
   </script>
 
 </body>

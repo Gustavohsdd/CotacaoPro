@@ -39,6 +39,7 @@ function cotacaoindividual_parseNumeroPtBr(valor) {
 /**
  * Cria um mapa de Produto -> Média das 3 últimas compras a partir da coleção "cotacoes".
  * Itera sobre as cotações mais recentes para otimizar a busca.
+ * ESTA FUNÇÃO FOI CORRIGIDA PARA LER A ESTRUTURA ANINHADA DE DADOS.
  * @returns {Promise<object>} Um mapa onde a chave é o nome do produto e o valor é a demanda média.
  */
 async function cotacaoindividual_criarMapaDemandaMediaProdutos() {
@@ -57,23 +58,33 @@ async function cotacaoindividual_criarMapaDemandaMediaProdutos() {
             return mapaDemandas;
         }
 
+        // Itera sobre cada documento de cotação
         for (const doc of cotacoesSnapshot.docs) {
             const cotacao = doc.data();
+            // Verifica se o array 'produtos' existe
             if (cotacao.produtos && Array.isArray(cotacao.produtos)) {
+                // Itera sobre cada grupo de produto dentro da cotação
                 for (const produtoGrupo of cotacao.produtos) {
-                    if (produtoGrupo.itens && Array.isArray(produtoGrupo.itens)) {
-                        for (const item of produtoGrupo.itens) {
-                            const nomeProduto = item.Produto ? String(item.Produto).trim() : null;
-                            if (nomeProduto) {
-                                if (!valoresComprasPorProduto[nomeProduto] || valoresComprasPorProduto[nomeProduto].length < 3) {
-                                    const quantidade = cotacaoindividual_parseNumeroPtBr(item.Comprar);
-                                    if (Number.isFinite(quantidade) && quantidade > 0) {
-                                        if (!valoresComprasPorProduto[nomeProduto]) {
-                                            valoresComprasPorProduto[nomeProduto] = [];
-                                        }
-                                        valoresComprasPorProduto[nomeProduto].push(quantidade);
-                                    }
+                    const nomeProduto = produtoGrupo.Produto ? String(produtoGrupo.Produto).trim() : null;
+
+                    // Se o produto principal ainda não tem 3 valores, procuramos nos seus itens
+                    if (nomeProduto && (!valoresComprasPorProduto[nomeProduto] || valoresComprasPorProduto[nomeProduto].length < 3)) {
+                        if (produtoGrupo.itens && Array.isArray(produtoGrupo.itens)) {
+                            // Soma o valor 'Comprar' de todos os itens deste grupo
+                            let totalComprarDoGrupo = 0;
+                            for (const item of produtoGrupo.itens) {
+                                const quantidade = cotacaoindividual_parseNumeroPtBr(item.Comprar);
+                                if (Number.isFinite(quantidade) && quantidade > 0) {
+                                    totalComprarDoGrupo += quantidade;
                                 }
+                            }
+
+                            // Se houve compra para este grupo de produto, adiciona como um valor de compra
+                            if (totalComprarDoGrupo > 0) {
+                                if (!valoresComprasPorProduto[nomeProduto]) {
+                                    valoresComprasPorProduto[nomeProduto] = [];
+                                }
+                                valoresComprasPorProduto[nomeProduto].push(totalComprarDoGrupo);
                             }
                         }
                     }
@@ -81,6 +92,7 @@ async function cotacaoindividual_criarMapaDemandaMediaProdutos() {
             }
         }
 
+        // Calcula a média para cada produto que teve valores encontrados
         for (const produto in valoresComprasPorProduto) {
             const compras = valoresComprasPorProduto[produto];
             if (compras.length > 0) {
@@ -130,13 +142,13 @@ async function cotacaoindividual_criarMapaEstoqueMinimoProdutos() {
 
 /**
  * Busca todos os itens de uma cotação específica e enriquece com dados de demanda e estoque.
+ * ESTA FUNÇÃO FOI ATUALIZADA PARA ENVIAR OS DADOS NO NÍVEL DO GRUPO DE PRODUTO.
  * @param {string} idCotacaoAlvo O ID da cotação a ser buscada.
  * @return {Promise<Array<object>|null>} Um array de objetos (itens), ou null em caso de erro.
  */
 async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
     logger.info(`cotacaoindividual_buscarProdutosPorIdCotacao: Buscando produtos para ID '${idCotacaoAlvo}'.`);
-    
-    // As funções para criar mapas de estoque e demanda continuam as mesmas
+
     const [mapaEstoqueMinimo, mapaDemandaMedia] = await Promise.all([
         cotacaoindividual_criarMapaEstoqueMinimoProdutos(),
         cotacaoindividual_criarMapaDemandaMediaProdutos()
@@ -154,47 +166,52 @@ async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
 
         const cotacao = docSnap.data();
 
-        // Verificamos se a estrutura 'produtos' com 'itens' aninhados existe
         if (!cotacao.produtos || !Array.isArray(cotacao.produtos)) {
             logger.warn(`Cotação ID '${idCotacaoAlvo}' não possui a estrutura de produtos aninhados esperada.`);
             return { produtos: [], dataAbertura: cotacao['Data Abertura'] || null };
         }
 
-        // Itera sobre a estrutura aninhada para enriquecer os dados sem achatar a lista
         const produtosEnriquecidos = cotacao.produtos.map(grupoProduto => {
             const nomeProdutoPrincipal = grupoProduto.Produto ? String(grupoProduto.Produto).trim() : null;
+            
+            let estoqueMinimo = null;
+            let demandaMedia = null;
 
-            const itensEnriquecidos = (grupoProduto.itens || []).map(item => {
-                let estoqueMinimo = null;
-                let demandaMedia = null;
+            if (nomeProdutoPrincipal) {
+                estoqueMinimo = mapaEstoqueMinimo.hasOwnProperty(nomeProdutoPrincipal)
+                    ? mapaEstoqueMinimo[nomeProdutoPrincipal]
+                    : null;
+                demandaMedia = mapaDemandaMedia.hasOwnProperty(nomeProdutoPrincipal)
+                    ? mapaDemandaMedia[nomeProdutoPrincipal]
+                    : null;
+            }
 
-                if (nomeProdutoPrincipal) {
-                    estoqueMinimo = mapaEstoqueMinimo.hasOwnProperty(nomeProdutoPrincipal)
-                        ? mapaEstoqueMinimo[nomeProdutoPrincipal]
-                        : null;
-                    demandaMedia = mapaDemandaMedia.hasOwnProperty(nomeProdutoPrincipal)
-                        ? mapaDemandaMedia[nomeProdutoPrincipal]
-                        : null;
-                }
-                
-                // Retorna o item com os novos campos e a referência ao produto original
+            // Garante que cada item tenha as chaves necessárias para a tabela
+            const itensFormatados = (grupoProduto.itens || []).map(item => {
                 return {
                     ...item,
-                    Produto: nomeProdutoPrincipal, // Garante que o nome do produto principal está no item
-                    EstoqueMinimoProdutoPrincipal: estoqueMinimo,
-                    DemandaMediaProdutoPrincipal: demandaMedia,
-                    _subProdutoOriginalPersistido: item.SubProduto || item.Subproduto || null // Garante consistência
+                    Produto: nomeProdutoPrincipal,
+                    _subProdutoOriginalPersistido: item.SubProduto || item.Subproduto || null
                 };
             });
-            
-            // Retorna o grupo do produto com seus itens já enriquecidos
+
+            // Retorna o grupo do produto com os novos campos de resumo
             return {
                 ...grupoProduto,
-                itens: itensEnriquecidos
+                itens: itensFormatados,
+                // Adiciona os campos de resumo diretamente no objeto do grupo
+                estoqueMinimoProdutoPrincipal: estoqueMinimo,
+                demandaMediaProdutoPrincipal: demandaMedia,
+                // O 'Estoque Atual' já vem da importação, então apenas garantimos que ele exista
+                estoqueAtualProdutoPrincipal: grupoProduto.hasOwnProperty("Estoque Atual")
+                    ? grupoProduto["Estoque Atual"]
+                    : null
             };
         });
         
-        const dataAbertura = cotacao['Data Abertura'] ? cotacao['Data Abertura'].toDate().toISOString() : null;
+        const dataAbertura = cotacao['Data Abertura'] && cotacao['Data Abertura'].toDate 
+            ? cotacao['Data Abertura'].toDate().toISOString() 
+            : null;
 
         logger.info(`cotacaoindividual_buscarProdutosPorIdCotacao: ${produtosEnriquecidos.length} grupos de produtos encontrados e enriquecidos para ID '${idCotacaoAlvo}'.`);
         
@@ -221,18 +238,18 @@ async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
 cotacaoindividualRouter.post('/cotacaoindividual/detalhes', async (req, res) => {
     const { idCotacao } = req.body;
     logger.info(`API: Recebida requisição para obter detalhes da cotação ID '${idCotacao}'.`);
-    
+
     try {
         if (!idCotacao) {
             return res.status(400).json({ success: false, message: "ID da Cotação não fornecido." });
         }
-        
+
         const resultado = await cotacaoindividual_buscarProdutosPorIdCotacao(idCotacao);
 
         if (resultado === null) {
             return res.status(500).json({ success: false, message: `Falha ao buscar produtos para cotação ID ${idCotacao}.` });
         }
-        
+
         // CORREÇÃO: Enviamos os dados já agrupados, a data de abertura e a lista de cabeçalhos fixa.
         res.status(200).json({
             success: true,
@@ -261,7 +278,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res
 
         const db = admin.firestore();
         const cotacaoDocRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
-        
+
         // Colunas que, quando alteradas, devem ser sincronizadas com a coleção de subprodutos.
         const COLUNAS_SINCRONIZAVEIS_COM_SUBPRODUTOS = ['SubProduto', 'Tamanho', 'UN', 'Fator'];
 
@@ -289,7 +306,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res
                     if (itemIndex !== -1) {
                         const itensAtualizados = [...grupoProduto.itens];
                         const itemOriginal = itensAtualizados[itemIndex];
-                        
+
                         // Converte o novo valor para número, se aplicável
                         const camposNumericos = ['Preço', 'Comprar', 'Fator'];
                         const valorFinal = camposNumericos.includes(colunaAlterada)
@@ -308,18 +325,18 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res
                             itensAtualizados[itemIndex]['Valor Total'] = preco * comprar;
                             itensAtualizados[itemIndex]['Preço por Fator'] = (fator !== 0) ? (preco / fator) : 0;
                         }
-                        
+
                         // Se o nome do SubProduto mudou, precisamos do novo nome para o retorno
                         if (colunaAlterada === 'SubProduto') {
-                           novoSubProdutoNome = novoValor;
+                            novoSubProdutoNome = novoValor;
                         }
-                        
+
                         itemAtualizado = true;
                         resultadoFinal.valoresCalculados = {
-                           valorTotal: itensAtualizados[itemIndex]['Valor Total'],
-                           precoPorFator: itensAtualizados[itemIndex]['Preço por Fator']
+                            valorTotal: itensAtualizados[itemIndex]['Valor Total'],
+                            precoPorFator: itensAtualizados[itemIndex]['Preço por Fator']
                         };
-                        
+
                         return { ...grupoProduto, itens: itensAtualizados };
                     }
                 }
@@ -332,7 +349,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res
 
             // Atualiza o documento da cotação com o array de produtos modificado
             transaction.update(cotacaoDocRef, { produtos: produtosAtualizados });
-            
+
             // Lógica para sincronizar com a coleção 'subprodutos'
             if (COLUNAS_SINCRONIZAVEIS_COM_SUBPRODUTOS.includes(colunaAlterada)) {
                 const subProdutosQuery = await db.collection(SUBPRODUTOS_COLLECTION)
@@ -348,16 +365,16 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res
                     transaction.update(subProdutoDocRef, atualizacao);
                     logger.info(`Sincronização: Subproduto ${subProdutoDocRef.id} atualizado com { ${colunaAlterada}: "${novoValor}" }.`);
                 } else {
-                     logger.warn(`Sincronização: Subproduto correspondente não encontrado para ${JSON.stringify(identificadoresLinha)}.`);
+                    logger.warn(`Sincronização: Subproduto correspondente não encontrado para ${JSON.stringify(identificadoresLinha)}.`);
                 }
             }
-             if (novoSubProdutoNome) {
+            if (novoSubProdutoNome) {
                 resultadoFinal.novoSubProdutoNomeSeAlterado = novoSubProdutoNome;
             }
         });
-        
-        res.status(200).json({ 
-            success: true, 
+
+        res.status(200).json({
+            success: true,
             message: `Coluna '${colunaAlterada}' atualizada com sucesso.`,
             ...resultadoFinal
         });
@@ -383,7 +400,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-detalhes-item', async (r
 
         const db = admin.firestore();
         const docRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
-        
+
         await db.runTransaction(async (transaction) => {
             const docSnap = await transaction.get(docRef);
             if (!docSnap.exists) {
@@ -392,7 +409,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-detalhes-item', async (r
 
             const cotacao = docSnap.data();
             const itens = cotacao.itens || [];
-            
+
             const itemIndex = itens.findIndex(item =>
                 item.Produto === identificadoresLinha.Produto &&
                 item.SubProduto === identificadoresLinha.SubProdutoChave &&
@@ -449,7 +466,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/acrescentar-itens', async (req,
 
             const todosSubProdutos = todosSubProdutosSnap.docs.map(doc => doc.data());
             const todosProdutos = todosProdutosSnap.docs.map(doc => doc.data());
-            
+
             const produtosMap = todosProdutos.reduce((map, prod) => {
                 if (prod.Produto) map[prod.Produto] = prod;
                 return map;
@@ -472,9 +489,9 @@ cotacaoindividualRouter.post('/cotacaoindividual/acrescentar-itens', async (req,
             }
 
             if (subProdutosFiltrados.length === 0) {
-                return 0; 
+                return 0;
             }
-            
+
             const novosItens = subProdutosFiltrados.map(subProd => {
                 const produtoPrincipal = produtosMap[subProd["Produto Vinculado"]];
                 return {
@@ -487,11 +504,11 @@ cotacaoindividualRouter.post('/cotacaoindividual/acrescentar-itens', async (req,
             transaction.update(cotacaoRef, { itens: admin.firestore.FieldValue.arrayUnion(...novosItens) });
             return novosItens.length;
         });
-        
+
         if (numItens > 0) {
-             res.status(200).json({ success: true, numItens, message: `${numItens} itens acrescentados com sucesso.` });
+            res.status(200).json({ success: true, numItens, message: `${numItens} itens acrescentados com sucesso.` });
         } else {
-             res.status(200).json({ success: true, numItens: 0, message: "Nenhum novo item encontrado para os critérios selecionados." });
+            res.status(200).json({ success: true, numItens: 0, message: "Nenhum novo item encontrado para os critérios selecionados." });
         }
 
     } catch (error) {
