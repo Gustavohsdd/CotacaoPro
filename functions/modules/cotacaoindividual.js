@@ -59,17 +59,23 @@ async function cotacaoindividual_criarMapaDemandaMediaProdutos() {
 
         for (const doc of cotacoesSnapshot.docs) {
             const cotacao = doc.data();
-            if (cotacao.itens && Array.isArray(cotacao.itens)) {
-                for (const item of cotacao.itens) {
-                    const nomeProduto = item.Produto ? String(item.Produto).trim() : null;
-                    if (nomeProduto) {
-                        if (!valoresComprasPorProduto[nomeProduto] || valoresComprasPorProduto[nomeProduto].length < 3) {
-                            const quantidade = cotacaoindividual_parseNumeroPtBr(item.Comprar);
-                            if (Number.isFinite(quantidade) && quantidade > 0) {
-                                if (!valoresComprasPorProduto[nomeProduto]) {
-                                    valoresComprasPorProduto[nomeProduto] = [];
+            // --- CORREÇÃO AQUI ---
+            // Acessa a estrutura aninhada 'produtos' -> 'itens'
+            if (cotacao.produtos && Array.isArray(cotacao.produtos)) {
+                for (const produtoGrupo of cotacao.produtos) {
+                    if (produtoGrupo.itens && Array.isArray(produtoGrupo.itens)) {
+                        for (const item of produtoGrupo.itens) {
+                            const nomeProduto = item.Produto ? String(item.Produto).trim() : null;
+                            if (nomeProduto) {
+                                if (!valoresComprasPorProduto[nomeProduto] || valoresComprasPorProduto[nomeProduto].length < 3) {
+                                    const quantidade = cotacaoindividual_parseNumeroPtBr(item.Comprar);
+                                    if (Number.isFinite(quantidade) && quantidade > 0) {
+                                        if (!valoresComprasPorProduto[nomeProduto]) {
+                                            valoresComprasPorProduto[nomeProduto] = [];
+                                        }
+                                        valoresComprasPorProduto[nomeProduto].push(quantidade);
+                                    }
                                 }
-                                valoresComprasPorProduto[nomeProduto].push(quantidade);
                             }
                         }
                     }
@@ -148,7 +154,17 @@ async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
         }
 
         const cotacao = docSnap.data();
-        const itens = cotacao.itens || [];
+        // --- CORREÇÃO PRINCIPAL AQUI ---
+        // Acessamos o array 'produtos' e, em seguida, usamos reduce para achatar
+        // a estrutura, transformando a lista de produtos (cada um com seus itens)
+        // em uma única lista contendo todos os itens.
+        const itens = (cotacao.produtos || []).reduce((acc, produtoGrupo) => {
+            if (produtoGrupo.itens && Array.isArray(produtoGrupo.itens)) {
+                // Adiciona os itens deste grupo ao acumulador
+                acc.push(...produtoGrupo.itens);
+            }
+            return acc;
+        }, []);
 
         const itensEnriquecidos = itens.map(item => {
             const nomeProdutoPrincipal = item.Produto ? String(item.Produto).trim() : null;
