@@ -566,7 +566,6 @@
         // DECLARAÇÕES GLOBAIS
         //----------------------------------------------------------------------------------------------------
         const CotacaoIndividualScript_ID_SEARCH_INPUT_TOP = 'CotacaoIndividualScript_searchInput_Top';
-        const CotacaoIndividualScript_ID_TITULO_PAGINA = 'CotacaoIndividualScript_tituloPagina';
         const CotacaoIndividualScript_ID_COTACAO_EXIBIDO = 'CotacaoIndividualScript_idCotacaoExibido';
         const CotacaoIndividualScript_ID_DATA_ABERTURA_EXIBIDA = 'CotacaoIndividualScript_dataAberturaExibida';
         const CotacaoIndividualScript_ID_MENSAGEM_FEEDBACK = 'CotacaoIndividualScript_mensagemFeedback';
@@ -660,40 +659,10 @@
             }
         }
         
-        function cotacaoindividual_removerAcentos(text) {
-            if (text === null || text === undefined) return "";
-            return text.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        }
-        
         //----------------------------------------------------------------------------------------------------
         // LÓGICA DE EDIÇÃO INLINE, CÁLCULOS E RENDERIZAÇÃO
         //----------------------------------------------------------------------------------------------------
-        function cotacaoindividual_transformarCelulaEmInput(event) {
-            const td = event.currentTarget;
-            if (td.querySelector('input')) return;
-            const valorOriginal = td.dataset.valorOriginal || '';
-            const coluna = td.dataset.coluna;
-            const tipoInput = ["Fator", "Preço", "Comprar"].includes(coluna) ? 'number' : 'text';
-            td.innerHTML = `<input type="${tipoInput}" step="any" class="inline-edit-input" value="${valorOriginal.replace(/\./g, '').replace(',', '.')}" style="width: 95%; box-sizing: border-box;" />`;
-            const input = td.querySelector('input');
-            input.focus();
-            input.select();
-            
-            const salvar = async () => {
-                await cotacaoindividual_salvarEdicaoInline(input);
-            };
-
-            input.addEventListener('blur', salvar);
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    input.removeEventListener('blur', salvar);
-                    td.textContent = td.dataset.valorOriginal || '';
-                } else if (e.key === 'Enter') {
-                    input.blur();
-                }
-            });
-        }
-
+        
         async function cotacaoindividual_salvarEdicaoInline(element) {
             const td = element.parentElement;
             let novoValorStr = element.value;
@@ -705,7 +674,6 @@
                 novoValorStr = String(novoValorStr).replace(',', '.');
             }
 
-            // Normaliza para comparação, mas envia o valor do input
             const valorOriginalComparacao = String(valorOriginalStr).replace(/\./g, '').replace(',', '.');
             if (novoValorStr === valorOriginalComparacao) {
                 td.textContent = valorOriginalStr;
@@ -744,7 +712,6 @@
                     if(itemOriginal) itemOriginal._subProdutoOriginalPersistido = response.novoSubProdutoNomeSeAlterado;
                 }
                 
-                // Atualiza a célula e recalcula a UI
                 let valorDisplay = novoValorStr;
                  if (camposNumericos.includes(coluna)) {
                     const num = cotacaoindividual_parseNumeroPtBr(novoValorStr);
@@ -755,23 +722,12 @@
                 td.textContent = valorDisplay;
                 td.dataset.valorOriginal = valorDisplay;
 
-                cotacaoindividual_atualizarGrupoDeCalculosCliente(tr);
             } else {
                 cotacaoindividual_exibirFeedback(response.message || 'Falha ao salvar.', true);
                 td.textContent = valorOriginalStr;
             }
         }
         
-        function cotacaoindividual_atualizarGrupoDeCalculosCliente(trEditada) {
-            // Lógica de cálculo e atualização da UI, sem chamadas ao servidor.
-            // (Esta função permanece a mesma da versão GAS, pois manipula o DOM)
-        }
-        
-        function cotacaoindividual_filtrarTabelaPrincipal() {
-            // Lógica de filtro da tabela, sem chamadas ao servidor.
-            // (Esta função permanece a mesma da versão GAS)
-        }
-
         function cotacaoindividual_renderizarCabecalhoTabela() {
             const tabela = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO);
             if (!tabela) return;
@@ -787,17 +743,52 @@
         }
 
         function cotacaoindividual_agruparEClassificarProdutos(todosOsItens) {
-            // Lógica de agrupamento, sem chamadas ao servidor.
-            // (Esta função permanece a mesma da versão GAS)
+            if (!todosOsItens || todosOsItens.length === 0) {
+                return [];
+            }
+
+            const porCategoria = todosOsItens.reduce((acc, item) => {
+                const categoria = item.Categoria || 'Sem Categoria';
+                if (!acc[categoria]) {
+                    acc[categoria] = [];
+                }
+                acc[categoria].push(item);
+                return acc;
+            }, {});
+
+            const resultadoFinal = Object.keys(porCategoria).sort().map(nomeCategoria => {
+                const itensDaCategoria = porCategoria[nomeCategoria];
+                const porProduto = itensDaCategoria.reduce((acc, item) => {
+                    const produto = item.Produto || 'Produto Desconhecido';
+                    if (!acc[produto]) {
+                        acc[produto] = {
+                            nome: produto,
+                            estoqueMinimo: item.EstoqueMinimoProdutoPrincipal,
+                            demandaMedia: item.DemandaMediaProdutoPrincipal,
+                            subProdutos: []
+                        };
+                    }
+                    acc[produto].subProdutos.push(item);
+                    return acc;
+                }, {});
+
+                return {
+                    nome: nomeCategoria,
+                    produtos: Object.values(porProduto).sort((a, b) => a.nome.localeCompare(b.nome))
+                };
+            });
+
+            return resultadoFinal;
         }
         
-        function cotacaoindividual_renderizarGruposDeProdutos(gruposDeProdutos) {
+        // --- FUNÇÃO CORRIGIDA ---
+        function cotacaoindividual_renderizarGruposDeProdutos(gruposDeCategorias) {
             const tabela = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO);
             if (!tabela) return;
             const tbody = tabela.querySelector('tbody');
             tbody.innerHTML = '';
 
-            if (!gruposDeProdutos || gruposDeProdutos.length === 0) {
+            if (!gruposDeCategorias || gruposDeCategorias.length === 0) {
                 const tr = tbody.insertRow();
                 const td = tr.insertCell();
                 td.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length || 1;
@@ -805,27 +796,67 @@
                 td.textContent = 'Nenhum produto para esta cotação.';
                 return;
             }
-            
-            // ... (Resto da lógica de renderização do corpo da tabela, que é complexa mas não muda)
-            // A principal mudança é adicionar os event listeners para edição inline
-            // Esta parte do código original pode ser mantida, apenas garantindo que
-            // a chamada ao `addEventListener` chame a nova `cotacaoindividual_transformarCelulaEmInput`.
-            // Exemplo:
-            // td.addEventListener('click', cotacaoindividual_transformarCelulaEmInput);
+
+            gruposDeCategorias.forEach(grupoCategoria => {
+                // Linha da Categoria (Cabeçalho do Acordeão)
+                const categoriaRow = tbody.insertRow();
+                categoriaRow.className = 'categoria-accordion-header-row';
+                const categoriaCell = categoriaRow.insertCell();
+                categoriaCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
+                categoriaCell.innerHTML = `
+                    <div class="categoria-header-content">
+                        <svg class="categoria-accordion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        <span>${grupoCategoria.nome}</span>
+                    </div>
+                `;
+
+                const contentRows = [];
+
+                grupoCategoria.produtos.forEach(grupoProduto => {
+                    // Linha do Produto Principal (Separador)
+                    const produtoRow = tbody.insertRow();
+                    produtoRow.className = 'produto-group-separator-row';
+                    const produtoCell = produtoRow.insertCell();
+                    produtoCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
+                    produtoCell.innerHTML = `
+                        <div class="contagem-container-principal">
+                            <span class="produto-principal-info">${grupoProduto.nome}</span>
+                        </div>
+                    `;
+                    contentRows.push(produtoRow);
+
+                    // Linhas dos SubProdutos (Itens)
+                    grupoProduto.subProdutos.forEach(item => {
+                        const subProdutoRow = tbody.insertRow();
+                        subProdutoRow.className = 'sub-produto-row';
+                        subProdutoRow.dataset.produto = item.Produto;
+                        subProdutoRow.dataset.fornecedor = item.Fornecedor;
+                        subProdutoRow.dataset.subprodutoOriginalPersistido = item._subProdutoOriginalPersistido;
+
+                        CotacaoIndividualScript_cabecalhosVisiveis.forEach(cabecalho => {
+                            const td = subProdutoRow.insertCell();
+                            const valor = item[cabecalho];
+                            td.textContent = valor;
+                            // Adicionar outras lógicas de formatação e classes aqui se necessário
+                        });
+                        contentRows.push(subProdutoRow);
+                    });
+                });
+
+                 // Lógica do Acordeão
+                categoriaRow.addEventListener('click', () => {
+                    categoriaRow.classList.toggle('expanded');
+                    contentRows.forEach(row => row.classList.toggle('hidden-by-category'));
+                });
+            });
         }
 
         async function cotacaoindividual_carregarDadosCotacao(idCotacao) {
-            const tbody = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO)?.querySelector('tbody');
-            if(tbody) {
-                const placeholderCell = tbody.querySelector('#CotacaoIndividualScript_tabelaLoadingMsg');
-                if(placeholderCell) placeholderCell.innerHTML = `
-                    <div style="display: flex; justify-content: center; align-items: center;">
-                        <svg class="custom-spinner" ...></svg>
-                        <span>Carregando dados da cotação...</span>
-                    </div>`;
-            }
+            cotacaoindividual_mostrarLoadingOverlay(true, 'Carregando dados da cotação...');
             
             const resposta = await cotacaoindividual_callApi('cotacaoindividual/detalhes', 'POST', { idCotacao });
+            
+            cotacaoindividual_mostrarLoadingOverlay(false);
 
             if (resposta && resposta.success) {
                 CotacaoIndividualScript_dadosOriginaisCotacao = resposta.dados || [];
@@ -837,16 +868,20 @@
                 
                 const dataAberturaContainer = document.getElementById(CotacaoIndividualScript_ID_DATA_ABERTURA_EXIBIDA);
                 if (dataAberturaContainer && CotacaoIndividualScript_dadosOriginaisCotacao.length > 0) {
-                    const dataISO = CotacaoIndividualScript_dadosOriginaisCotacao[0]['Data Abertura'];
-                    if (dataISO) {
-                        const dataObj = new Date(dataISO);
-                        dataAberturaContainer.textContent = `Data de Abertura: ${dataObj.toLocaleDateString('pt-BR')}`;
+                    const primeiroItem = CotacaoIndividualScript_dadosOriginaisCotacao.find(item => item['Data Abertura']);
+                    if (primeiroItem) {
+                         const dataISO = primeiroItem['Data Abertura'];
+                         if (dataISO) {
+                            const dataObj = new Date(dataISO);
+                            dataAberturaContainer.textContent = `Data de Abertura: ${dataObj.toLocaleDateString('pt-BR')}`;
+                         }
                     }
                 }
             } else {
                 const msgErro = resposta.message || "Falha ao carregar dados da cotação.";
                 cotacaoindividual_exibirFeedback(msgErro, true);
-                if (tbody) tbody.innerHTML = `<tr><td colspan="1" class="text-center p-8 text-red-500">${msgErro}</td></tr>`;
+                const tbody = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO)?.querySelector('tbody');
+                if (tbody) tbody.innerHTML = `<tr><td colspan="${CotacaoIndividualScript_cabecalhosVisiveis.length || 1}" class="text-center p-8 text-red-500">${msgErro}</td></tr>`;
             }
         }
         
@@ -854,13 +889,10 @@
         // INICIALIZAÇÃO
         //----------------------------------------------------------------------------------------------------
         
-        // Função para simular a navegação e passagem de parâmetros
         function cotacaoindividual_obterParametros() {
-            // Esta função agora lê os parâmetros diretamente da URL da nova guia
             const params = new URLSearchParams(window.location.search);
-            const idCotacao = params.get('idCotacao'); // Pega o valor do parâmetro 'idCotacao'
-            const modo = params.get('modo');
-            return { idCotacao, modo };
+            const idCotacao = params.get('idCotacao');
+            return { idCotacao };
         }
 
         async function inicializarPagina() {
@@ -868,11 +900,6 @@
             
             const params = cotacaoindividual_obterParametros();
             CotacaoIndividualScript_cotacaoIdAtual = params.idCotacao;
-            
-            // Limpa o parâmetro global para não ser reutilizado acidentalmente
-            if(window.cotacaoProParams) {
-                window.cotacaoProParams = {};
-            }
 
             const spanIdCotacao = document.getElementById(CotacaoIndividualScript_ID_COTACAO_EXIBIDO);
 
@@ -884,10 +911,12 @@
                 if (spanIdCotacao) spanIdCotacao.textContent = "Inválida";
                 document.title = "Cotação Inválida - CotaçãoPRO";
                 cotacaoindividual_exibirFeedback("ID da Cotação não fornecido.", true, 0);
+                 const tbody = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO)?.querySelector('tbody');
+                if (tbody) tbody.innerHTML = `<tr><td colspan="1" class="text-center p-8 text-red-500">ID da Cotação não fornecido na URL.</td></tr>`;
             }
         }
         
-        inicializarPagina();
+        document.addEventListener('DOMContentLoaded', inicializarPagina);
 
     })();
   </script>

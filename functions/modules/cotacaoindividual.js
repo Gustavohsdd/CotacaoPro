@@ -59,8 +59,6 @@ async function cotacaoindividual_criarMapaDemandaMediaProdutos() {
 
         for (const doc of cotacoesSnapshot.docs) {
             const cotacao = doc.data();
-            // --- CORREÇÃO AQUI ---
-            // Acessa a estrutura aninhada 'produtos' -> 'itens'
             if (cotacao.produtos && Array.isArray(cotacao.produtos)) {
                 for (const produtoGrupo of cotacao.produtos) {
                     if (produtoGrupo.itens && Array.isArray(produtoGrupo.itens)) {
@@ -154,13 +152,8 @@ async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
         }
 
         const cotacao = docSnap.data();
-        // --- CORREÇÃO PRINCIPAL AQUI ---
-        // Acessamos o array 'produtos' e, em seguida, usamos reduce para achatar
-        // a estrutura, transformando a lista de produtos (cada um com seus itens)
-        // em uma única lista contendo todos os itens.
         const itens = (cotacao.produtos || []).reduce((acc, produtoGrupo) => {
             if (produtoGrupo.itens && Array.isArray(produtoGrupo.itens)) {
-                // Adiciona os itens deste grupo ao acumulador
                 acc.push(...produtoGrupo.itens);
             }
             return acc;
