@@ -1064,11 +1064,17 @@
       let CotacaoIndividualScript_cotacaoIdAtual = null;
       let CotacaoIndividualScript_cabecalhosVisiveis = [];
       let CotacaoIndividualScript_dadosOriginaisCotacao = [];
+      let CotacaoIndividualScript_modoEtapaAtual = null;
 
       const CotacaoIndividualScript_COLUNAS_A_EXIBIR_PADRAO = [
         "SubProduto", "Fornecedor", "Tamanho", "UN", "Fator",
         "Preço", "Preço por Fator", "Comprar", "Valor Total"
       ];
+
+      const EtapasScript_COLUNAS_A_EXIBIR_FATURAMENTO = [
+        "SubProduto", "Preço", "Comprar", "Valor Total", "Empresa Faturada"
+      ];
+
       const CotacaoIndividualScript_MAPA_CORES_COLUNAS = {
         "SubProduto": "bg-col-amarelo", "Categoria": "bg-col-amarelo", "Fornecedor": "bg-col-amarelo",
         "Tamanho": "bg-col-laranja", "UN": "bg-col-laranja", "Fator": "bg-col-laranja",
@@ -1212,6 +1218,104 @@
                 }
               }, 50); // 50ms de atraso
             }
+          }
+        });
+      }
+
+      function cotacaoindividual_transformarCelulaEmInput(event) {
+        const td = event.currentTarget;
+        if (td.querySelector('input')) return;
+        const valorOriginal = td.dataset.valorOriginal || '';
+        const coluna = td.dataset.coluna;
+        const tipoInput = ["Fator", "Preço", "Comprar"].includes(coluna) ? 'number' : 'text';
+        td.innerHTML = `<input type="${tipoInput}" step="any" class="inline-edit-input" value="${valorOriginal.replace(/\./g, '').replace(',', '.')}" style="width: 95%; box-sizing: border-box; font-size: inherit; font-family: inherit; border: 1px solid #1D4ED8; border-radius: 3px;" />`;
+        const input = td.querySelector('input');
+        input.focus();
+        input.select();
+
+        const salvar = () => cotacaoindividual_salvarEdicaoInline(input);
+
+        input.addEventListener('blur', salvar);
+
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            input.removeEventListener('blur', salvar);
+            const tdCell = input.parentElement;
+            tdCell.textContent = tdCell.dataset.valorOriginal || '';
+          } else if (e.key === 'Enter') {
+            e.preventDefault(); // Impede o comportamento padrão do Enter
+
+            const isComprarColumn = td.dataset.coluna === 'Comprar';
+
+            // Aciona o salvamento da célula atual ao remover o foco
+            input.blur();
+
+            // Se a coluna for "Comprar", navega para a próxima
+            if (isComprarColumn) {
+              // Adiciona um pequeno atraso para garantir que o evento 'blur' e o salvamento sejam processados
+              setTimeout(() => {
+                const currentRow = td.closest('tr');
+                const tbody = currentRow.closest('tbody');
+
+                // Pega todas as linhas de subproduto que estão visíveis na tela
+                const allVisibleRows = Array.from(
+                  tbody.querySelectorAll('tr.sub-produto-row')
+                ).filter(row => row.offsetParent !== null); // 'offsetParent' é uma forma segura de verificar a visibilidade
+
+                const currentIndex = allVisibleRows.findIndex(row => row === currentRow);
+
+                // Verifica se existe uma próxima linha
+                if (currentIndex !== -1 && currentIndex < allVisibleRows.length - 1) {
+                  const nextRow = allVisibleRows[currentIndex + 1];
+                  const nextComprarCell = nextRow.querySelector('td[data-coluna="Comprar"]');
+
+                  if (nextComprarCell) {
+                    // Clica na próxima célula para ativar o modo de edição
+                    nextComprarCell.click();
+                  }
+                }
+              }, 50); // 50ms de atraso
+            }
+          }
+        });
+      }
+
+
+      // ########## COLE A NOVA FUNÇÃO AQUI ##########
+      /**
+       * Vincula os eventos de clique para todos os menus dropdown da página.
+       * Também fecha os menus se o usuário clicar fora deles.
+       */
+      function cotacaoindividual_vincularDropdowns() {
+        const dropdownButtons = document.querySelectorAll('.dropdown-menu-button');
+
+        dropdownButtons.forEach(button => {
+          button.addEventListener('click', function (event) {
+            event.stopPropagation();
+            const content = this.nextElementSibling;
+            const isShown = content.classList.contains('show');
+
+            // Fecha todos os outros dropdowns abertos
+            document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
+              if (openContent !== content) {
+                openContent.classList.remove('show');
+                openContent.previousElementSibling.classList.remove('open');
+              }
+            });
+
+            // Alterna o estado do dropdown atual
+            content.classList.toggle('show', !isShown);
+            this.classList.toggle('open', !isShown);
+          });
+        });
+
+        // Fecha os dropdowns se clicar em qualquer outro lugar da página
+        window.addEventListener('click', function (event) {
+          if (!event.target.matches('.dropdown-menu-button')) {
+            document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
+              openContent.classList.remove('show');
+              openContent.previousElementSibling.classList.remove('open');
+            });
           }
         });
       }
@@ -1683,6 +1787,8 @@
       async function inicializarPagina() {
         console.log("CotacaoIndividualScript: Iniciando para Firebase...");
 
+        cotacaoindividual_vincularDropdowns(); // <-- ADICIONE ESTA LINHA
+
         const params = cotacaoindividual_obterParametros();
         CotacaoIndividualScript_cotacaoIdAtual = params.idCotacao;
 
@@ -1922,6 +2028,464 @@
         });
       });
     }
+
+    //####################################################################################################
+    // INÍCIO DO MÓDULO DE ETAPAS (CLIENT-SIDE)
+    //####################################################################################################
+
+    // --- ETAPA 1: CONTAGEM DE ESTOQUE ---
+
+    function EtapasScript_ativarModoContagemEstoque() {
+      console.log("EtapasScript: Ativando modo Contagem de Estoque (Modal).");
+      CotacaoIndividualScript_modoEtapaAtual = 'contagem_estoque';
+
+      if (CotacaoIndividualScript_dadosOriginaisCotacao.length === 0) {
+        cotacaoindividual_exibirFeedback("Dados da cotação ainda não carregados. Tente novamente.", true, 5000);
+        CotacaoIndividualScript_modoEtapaAtual = null;
+        return;
+      }
+      EtapasScript_renderizarConteudoModalContagem();
+      const modalOverlay = document.getElementById('EtapasScript_modalContagemEstoqueOverlay');
+      if (modalOverlay) {
+        modalOverlay.classList.add('active');
+      }
+      const btnSalvar = document.getElementById('EtapasScript_btnSalvarModalContagem');
+      const btnCancelar = document.getElementById('EtapasScript_btnCancelarModalContagem');
+      const btnFechar = document.getElementById('EtapasScript_btnFecharModalContagemEstoque');
+
+      btnSalvar.removeEventListener('click', EtapasScript_salvarContagemEstoqueEtapa);
+      btnCancelar.removeEventListener('click', EtapasScript_fecharModalContagemEstoque);
+      btnFechar.removeEventListener('click', EtapasScript_fecharModalContagemEstoque);
+
+      btnSalvar.addEventListener('click', EtapasScript_salvarContagemEstoqueEtapa);
+      btnCancelar.addEventListener('click', EtapasScript_fecharModalContagemEstoque);
+      btnFechar.addEventListener('click', EtapasScript_fecharModalContagemEstoque);
+    }
+
+    function EtapasScript_fecharModalContagemEstoque() {
+      console.log("EtapasScript: Fechando modal de Contagem de Estoque.");
+      const modalOverlay = document.getElementById('EtapasScript_modalContagemEstoqueOverlay');
+      if (modalOverlay) {
+        modalOverlay.classList.remove('active');
+      }
+      CotacaoIndividualScript_modoEtapaAtual = null;
+      const feedbackDiv = document.getElementById('EtapasScript_feedbackModalContagem');
+      if (feedbackDiv) feedbackDiv.innerHTML = '';
+    }
+
+    function EtapasScript_renderizarConteudoModalContagem() {
+      const tbody = document.getElementById('EtapasScript_tbodyModalContagemEstoque');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const produtosPrincipais = {};
+      CotacaoIndividualScript_dadosOriginaisCotacao.forEach(grupo => {
+        const nomeProduto = grupo.Produto;
+        if (!produtosPrincipais[nomeProduto]) {
+          produtosPrincipais[nomeProduto] = {
+            nome: nomeProduto,
+            estoqueMinimo: grupo.estoqueMinimoProdutoPrincipal ?? '',
+            dadosEstoqueCompra: CotacaoIndividualScript_parsearStringEstoqueComprar(grupo["Estoque Atual"])
+          };
+        }
+      });
+
+      const listaProdutos = Object.values(produtosPrincipais).sort((a, b) => a.nome.localeCompare(b.nome));
+      listaProdutos.forEach(produto => {
+        const tr = tbody.insertRow();
+        tr.dataset.produtoNome = produto.nome;
+        tr.insertCell().textContent = produto.nome;
+
+        const tdEstMin = tr.insertCell();
+        const inputEstMin = document.createElement('input');
+        inputEstMin.type = 'number';
+        inputEstMin.className = 'input-contagem input-estoque-min-prod-principal';
+        inputEstMin.value = produto.estoqueMinimo;
+        tdEstMin.appendChild(inputEstMin);
+
+        const tdEstContado = tr.insertCell();
+        const inputEstContado = document.createElement('input');
+        inputEstContado.type = 'number';
+        inputEstContado.className = 'input-contagem input-estoque-contado-prod-principal';
+        inputEstContado.value = produto.dadosEstoqueCompra.estoqueAtual ?? '';
+        tdEstContado.appendChild(inputEstContado);
+
+        const tdComprar = tr.insertCell();
+        const inputComprar = document.createElement('input');
+        inputComprar.type = 'number';
+        inputComprar.className = 'input-contagem input-comprar-sugestao-prod-principal';
+        inputComprar.value = produto.dadosEstoqueCompra.comprar ?? '';
+        tdComprar.appendChild(inputComprar);
+      });
+    }
+
+    async function EtapasScript_salvarContagemEstoqueEtapa() {
+      const dadosParaSalvar = [];
+      document.querySelectorAll('#EtapasScript_tbodyModalContagemEstoque tr').forEach(row => {
+        const produtoNome = row.dataset.produtoNome;
+        if (!produtoNome) return;
+        const novoEstoqueMinimo = row.querySelector('.input-estoque-min-prod-principal').value;
+        const estoqueContado = row.querySelector('.input-estoque-contado-prod-principal').value;
+        const comprarSugestao = row.querySelector('.input-comprar-sugestao-prod-principal').value;
+        if (novoEstoqueMinimo !== '' || estoqueContado !== '' || comprarSugestao !== '') {
+          dadosParaSalvar.push({
+            nomeProdutoPrincipal: produtoNome,
+            novoEstoqueMinimoProdutoPrincipal: novoEstoqueMinimo !== '' ? parseFloat(novoEstoqueMinimo.replace(',', '.')) : null,
+            estoqueAtualContagem: estoqueContado !== '' ? parseFloat(estoqueContado.replace(',', '.')) : null,
+            comprarSugestao: comprarSugestao !== '' ? parseFloat(comprarSugestao.replace(',', '.')) : null
+          });
+        }
+      });
+
+      if (dadosParaSalvar.length === 0) {
+        EtapasScript_exibirFeedbackModalContagem("Nenhum dado foi inserido para salvar.", false, 4000);
+        return;
+      }
+
+      const btnSalvar = document.getElementById('EtapasScript_btnSalvarModalContagem');
+      btnSalvar.disabled = true;
+      btnSalvar.textContent = 'Salvando...';
+      EtapasScript_exibirFeedbackModalContagem("Salvando contagem...", false, 0);
+
+      const response = await cotacaoindividual_callApi('cotacaoindividual/salvar-contagem', 'POST', {
+        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+        dadosContagem: dadosParaSalvar
+      });
+
+      btnSalvar.disabled = false;
+      btnSalvar.textContent = 'Salvar Contagem';
+      if (response.success) {
+        EtapasScript_fecharModalContagemEstoque();
+        cotacaoindividual_exibirFeedback(response.message || "Contagem salva! Atualizando dados...", false, 5000);
+        cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
+      } else {
+        EtapasScript_exibirFeedbackModalContagem(response.message || "Falha ao salvar.", true, 7000);
+      }
+    }
+
+    function EtapasScript_exibirFeedbackModalContagem(mensagem, isError = false, duracao = 5000) {
+      const feedbackDiv = document.getElementById('EtapasScript_feedbackModalContagem');
+      if (feedbackDiv) {
+        const innerDiv = document.createElement('div');
+        innerDiv.className = `p-3 rounded-md text-sm ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+        innerDiv.textContent = mensagem;
+        feedbackDiv.innerHTML = '';
+        feedbackDiv.appendChild(innerDiv);
+        if (duracao > 0) setTimeout(() => { if (feedbackDiv.contains(innerDiv)) feedbackDiv.innerHTML = ''; }, duracao);
+      }
+    }
+
+    // --- ETAPA 2: RETIRAR PRODUTOS ---
+
+    function EtapasScript_identificarProdutosParaRetirada() {
+      const produtosParaRetirada = { crit1: [], crit2: [], crit3: [] };
+      if (!CotacaoIndividualScript_dadosOriginaisCotacao) return produtosParaRetirada;
+
+      CotacaoIndividualScript_dadosOriginaisCotacao.forEach(grupoProduto => {
+        const nomeProdutoPrincipal = grupoProduto.Produto;
+        const estoqueMin = grupoProduto.estoqueMinimoProdutoPrincipal;
+        const dadosEstoque = CotacaoIndividualScript_parsearStringEstoqueComprar(grupoProduto['Estoque Atual']);
+
+        if (dadosEstoque.estoqueAtual !== null && estoqueMin !== null && dadosEstoque.estoqueAtual >= estoqueMin) {
+          produtosParaRetirada.crit1.push({ nomeProdutoPrincipal, motivo: `Est. Atual (${dadosEstoque.estoqueAtual}) >= Mín. (${estoqueMin})` });
+        } else if (dadosEstoque.estoqueAtual === null && dadosEstoque.comprar === null) {
+          produtosParaRetirada.crit2.push({ nomeProdutoPrincipal, motivo: "Não foi marcado para comprar." });
+        } else if (estoqueMin === null) {
+          produtosParaRetirada.crit3.push({ nomeProdutoPrincipal, motivo: "Produto sem estoque mínimo definido." });
+        }
+      });
+      return produtosParaRetirada;
+    }
+
+    async function EtapasScript_manipularExclusaoProdutosRetirar() {
+      const produtosParaExcluir = Array.from(document.querySelectorAll('#EtapasScript_modalRetirarProdutosOverlay .checkbox-retirar-item-principal:checked'))
+        .map(cb => cb.dataset.produtoPrincipal);
+
+      if (produtosParaExcluir.length === 0) {
+        EtapasScript_exibirFeedbackModalRetirarProdutos("Nenhum produto selecionado.", true, 4000);
+        return;
+      }
+
+      const btnConfirmar = document.getElementById('EtapasScript_btnConfirmarRemocaoModal');
+      btnConfirmar.disabled = true;
+      btnConfirmar.textContent = 'Excluindo...';
+      EtapasScript_exibirFeedbackModalRetirarProdutos("Excluindo produtos...", false, 0);
+
+      const response = await cotacaoindividual_callApi('cotacaoindividual/retirar-produtos', 'POST', {
+        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+        nomesProdutosPrincipaisParaExcluir: produtosParaExcluir
+      });
+
+      btnConfirmar.disabled = false;
+      btnConfirmar.textContent = 'Confirmar Remoção';
+      if (response.success) {
+        EtapasScript_fecharModalRetirarProdutos();
+        cotacaoindividual_exibirFeedback("Produtos retirados com sucesso!", false, 5000);
+        cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
+      } else {
+        EtapasScript_exibirFeedbackModalRetirarProdutos(response.message || "Falha ao retirar produtos.", true, 7000);
+      }
+    }
+
+    function EtapasScript_ativarModoRetirarProdutos() {
+      console.log("EtapasScript: Ativando modo Retirar Produtos (Modal).");
+      CotacaoIndividualScript_modoEtapaAtual = 'retirar_produtos';
+      if (CotacaoIndividualScript_dadosOriginaisCotacao.length === 0) {
+        cotacaoindividual_exibirFeedback("Dados da cotação ainda não carregados.", true, 5000);
+        CotacaoIndividualScript_modoEtapaAtual = null;
+        return;
+      }
+      EtapasScript_renderizarConteudoModalRetirarProdutos();
+      document.getElementById('EtapasScript_modalRetirarProdutosOverlay')?.classList.add('active');
+      const btnConfirmar = document.getElementById('EtapasScript_btnConfirmarRemocaoModal');
+      const btnCancelar = document.getElementById('EtapasScript_btnCancelarModalRetirarProdutos');
+      const btnFechar = document.getElementById('EtapasScript_btnFecharModalRetirarProdutos');
+
+      btnConfirmar.removeEventListener('click', EtapasScript_manipularExclusaoProdutosRetirar);
+      btnCancelar.removeEventListener('click', EtapasScript_fecharModalRetirarProdutos);
+      btnFechar.removeEventListener('click', EtapasScript_fecharModalRetirarProdutos);
+
+      btnConfirmar.addEventListener('click', EtapasScript_manipularExclusaoProdutosRetirar);
+      btnCancelar.addEventListener('click', EtapasScript_fecharModalRetirarProdutos);
+      btnFechar.addEventListener('click', EtapasScript_fecharModalRetirarProdutos);
+    }
+
+    function EtapasScript_fecharModalRetirarProdutos() {
+      document.getElementById('EtapasScript_modalRetirarProdutosOverlay')?.classList.remove('active');
+      CotacaoIndividualScript_modoEtapaAtual = null;
+      const feedbackDiv = document.getElementById('EtapasScript_feedbackModalRetirarProdutos');
+      if (feedbackDiv) feedbackDiv.innerHTML = '';
+    }
+
+    // --- ETAPA 3: ENVIAR PARA FORNECEDORES ---
+    async function EtapasScript_iniciarEnvioParaFornecedores() {
+      console.log("EtapasScript: Iniciando envio para fornecedores.");
+      if (!CotacaoIndividualScript_cotacaoIdAtual) {
+        cotacaoindividual_exibirFeedback("ID da Cotação não definido.", true, 5000);
+        return;
+      }
+      cotacaoindividual_mostrarLoadingOverlay(true, "Atualizando status da cotação...");
+      const response = await cotacaoindividual_callApi('cotacaoindividual/atualizar-status', 'POST', {
+        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+        novoStatus: "Aguardando Preços"
+      });
+
+      cotacaoindividual_mostrarLoadingOverlay(false);
+      if (response.success) {
+        cotacaoindividual_exibirFeedback("Status atualizado! A cotação está pronta para o envio aos fornecedores.", false, 7000);
+        // A lógica de gerar e enviar links seria em outro local/módulo no Firebase.
+      } else {
+        cotacaoindividual_exibirFeedback(response.message || "Falha ao atualizar status.", true, 7000);
+      }
+    }
+
+    // --- ETAPA 4: REALIZAR COTAÇÃO ---
+
+    async function EtapasScript_ativarModoRealizarCotacao() {
+      console.log("EtapasScript: Ativando modo Realizar Cotação.");
+      CotacaoIndividualScript_modoEtapaAtual = 'realizar_cotacao';
+      document.getElementById('EtapasScript_realizarCotacaoContainer').classList.remove('hidden');
+      document.getElementById('CotacaoIndividualScript_tableContainer').classList.add('hidden');
+
+      const subprodutosSemPreco = EtapasScript_identificarSubprodutosSemPreco();
+      EtapasScript_renderizarListaSubprodutosSemPreco(subprodutosSemPreco);
+
+      cotacaoindividual_mostrarLoadingOverlay(true, "Atualizando status...");
+      const response = await cotacaoindividual_callApi('cotacaoindividual/atualizar-status', 'POST', {
+        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+        novoStatus: "Realizando Cotação"
+      });
+      cotacaoindividual_mostrarLoadingOverlay(false);
+      if (!response.success) {
+        cotacaoindividual_exibirFeedback(response.message || "Falha ao atualizar status.", true, 5000);
+      }
+    }
+
+    function EtapasScript_desativarModoRealizarCotacao() {
+      console.log("EtapasScript: Desativando modo Realizar Cotação.");
+      CotacaoIndividualScript_modoEtapaAtual = null;
+      document.getElementById('EtapasScript_realizarCotacaoContainer').classList.add('hidden');
+      document.getElementById('CotacaoIndividualScript_tableContainer').classList.remove('hidden');
+      cotacaoindividual_exibirFeedback("Visualização padrão restaurada.", false, 3000);
+    }
+
+    function EtapasScript_identificarSubprodutosSemPreco() {
+      if (!CotacaoIndividualScript_dadosOriginaisCotacao) return [];
+      const semPreco = [];
+      CotacaoIndividualScript_dadosOriginaisCotacao.forEach(grupo => {
+        grupo.itens.forEach(item => {
+          const preco = cotacaoindividual_parseNumeroPtBr(item['Preço']);
+          if (isNaN(preco) || preco === 0) {
+            semPreco.push(item);
+          }
+        });
+      });
+      return semPreco;
+    }
+
+    async function EtapasScript_manipularExclusaoSubprodutosSemPreco() {
+      const subprodutosParaExcluir = Array.from(document.querySelectorAll('.checkbox-retirar-subproduto-sem-preco:checked'))
+        .map(cb => ({
+          Produto: cb.dataset.produto,
+          SubProdutoChave: cb.dataset.subproduto,
+          Fornecedor: cb.dataset.fornecedor
+        }));
+
+      if (subprodutosParaExcluir.length > 0) {
+        cotacaoindividual_mostrarLoadingOverlay(true, "Excluindo subprodutos...");
+        const response = await cotacaoindividual_callApi('cotacaoindividual/retirar-subprodutos', 'POST', {
+          idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+          subprodutosParaExcluir: subprodutosParaExcluir
+        });
+        cotacaoindividual_mostrarLoadingOverlay(false);
+
+        if (response.success) {
+          cotacaoindividual_exibirFeedback("Subprodutos sem preço removidos.", false, 4000);
+          await cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
+        } else {
+          cotacaoindividual_exibirFeedback(response.message || "Falha ao excluir.", true, 5000);
+          return; // Não continua se a exclusão falhar
+        }
+      }
+      EtapasScript_iniciarEdicao();
+    }
+
+    function EtapasScript_iniciarEdicao() {
+      document.getElementById('EtapasScript_realizarCotacaoContainer').classList.add('hidden');
+      document.getElementById(CotacaoIndividualScript_tableContainer).classList.remove('hidden');
+      cotacaoindividual_exibirFeedback("Modo de edição ativado. Clique em uma célula para editar.", false, 6000);
+    }
+
+    // --- ETAPA 5: DEFINIR EMPRESA PARA FATURAMENTO ---
+    let EtapasScript_empresasParaFaturamento = [];
+    let EtapasScript_pedidosMinimosFornecedores = {};
+
+    async function EtapasScript_ativarModoDefinirEmpresa() {
+      console.log("EtapasScript: Ativando modo Definir Empresa (Modal).");
+      CotacaoIndividualScript_modoEtapaAtual = 'definir_empresa';
+
+      const modalOverlay = document.getElementById('EtapasScript_modalDefinirEmpresaOverlay');
+      if (!modalOverlay) return;
+
+      modalOverlay.classList.add('active');
+      EtapasScript_exibirFeedbackModalDefinirEmpresa("Carregando dados...", false, 0);
+
+      const response = await cotacaoindividual_callApi('cotacaoindividual/dados-faturamento', 'GET');
+
+      if (response.success) {
+        EtapasScript_empresasParaFaturamento = response.empresas || [];
+        EtapasScript_pedidosMinimosFornecedores = response.pedidosMinimos || {};
+        // Lógica de renderização do modal aqui...
+        EtapasScript_exibirFeedbackModalDefinirEmpresa("Dados carregados.", false, 4000);
+      } else {
+        EtapasScript_exibirFeedbackModalDefinirEmpresa(response.message || "Falha ao carregar dados.", true, 5000);
+        setTimeout(() => EtapasScript_fecharModalDefinirEmpresa(), 5000);
+      }
+
+      // ... resto da lógica de renderização e botões ...
+    }
+
+    function EtapasScript_fecharModalDefinirEmpresa() {
+      document.getElementById('EtapasScript_modalDefinirEmpresaOverlay')?.classList.remove('active');
+      CotacaoIndividualScript_modoEtapaAtual = null;
+    }
+
+    async function EtapasScript_salvarFaturamentoEmLote() {
+      const alteracoes = EtapasScript_coletarAlteracoesFaturamento();
+      if (alteracoes.length === 0) {
+        EtapasScript_exibirFeedbackModalDefinirEmpresa("Nenhuma alteração para salvar.", false, 4000);
+        return;
+      }
+      const btnSalvar = document.getElementById('EtapasScript_btnSalvarFaturamento');
+      btnSalvar.disabled = true;
+      btnSalvar.textContent = 'Salvando...';
+
+      const response = await cotacaoindividual_callApi('cotacaoindividual/salvar-faturamento', 'POST', {
+        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+        alteracoes: alteracoes
+      });
+
+      btnSalvar.disabled = false;
+      btnSalvar.textContent = 'Salvar e Fechar';
+      if (response.success) {
+        EtapasScript_fecharModalDefinirEmpresa();
+        cotacaoindividual_exibirFeedback("Faturamento salvo com sucesso! Atualizando...", false, 5000);
+        cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
+      } else {
+        EtapasScript_exibirFeedbackModalDefinirEmpresa(response.message || "Falha ao salvar.", true, 7000);
+      }
+    }
+
+    // --- ETAPA 6: DEFINIR CONDIÇÕES DE PAGAMENTO ---
+    async function EtapasScript_ativarModoDefinirCondicoesPagamento() {
+      console.log("EtapasScript: Ativando modo Definir Condições de Pagamento (Modal).");
+      CotacaoIndividualScript_modoEtapaAtual = 'definir_condicoes_pagamento';
+
+      const modalOverlay = document.getElementById('EtapasScript_modalCondicoesPagamentoOverlay');
+      modalOverlay.classList.add('active');
+      EtapasScript_exibirFeedbackModalCondicoes("Carregando dados...", false, 0);
+
+      const response = await cotacaoindividual_callApi('cotacaoindividual/dados-condicoes', 'GET');
+      if (response.success) {
+        // Lógica de renderização do modal de condições...
+        EtapasScript_exibirFeedbackModalCondicoes("", false, 1);
+      } else {
+        EtapasScript_exibirFeedbackModalCondicoes(response.message || "Falha ao carregar dados.", true, 5000);
+        setTimeout(EtapasScript_fecharModalCondicoesPagamento, 3000);
+      }
+    }
+
+    function EtapasScript_fecharModalCondicoesPagamento() {
+      document.getElementById('EtapasScript_modalCondicoesPagamentoOverlay')?.classList.remove('active');
+      CotacaoIndividualScript_modoEtapaAtual = null;
+    }
+
+    async function EtapasScript_salvarDadosCondicoesPagamento() {
+      // Lógica para coletar dados do formulário do modal
+      const dadosParaSalvar = []; //... preencher com os dados
+      if (dadosParaSalvar.length === 0) {
+        EtapasScript_exibirFeedbackModalCondicoes("Não há dados para salvar.", false, 4000);
+        return;
+      }
+
+      const btnSalvar = document.getElementById('EtapasScript_btnSalvarModalCondicoes');
+      btnSalvar.disabled = true;
+      btnSalvar.textContent = "Salvando...";
+
+      const response = await cotacaoindividual_callApi('cotacaoindividual/salvar-condicoes', 'POST', {
+        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+        dadosPagamento: dadosParaSalvar
+      });
+
+      btnSalvar.disabled = false;
+      btnSalvar.textContent = "Salvar Condições";
+      if (response.success) {
+        EtapasScript_fecharModalCondicoesPagamento();
+        cotacaoindividual_exibirFeedback(response.message, false, 6000);
+        cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
+      } else {
+        EtapasScript_exibirFeedbackModalCondicoes(response.message || "Falha ao salvar.", true, 8000);
+      }
+    }
+
+    // --- ETAPA 7: IMPRIMIR PEDIDOS ---
+
+    function EtapasScript_abrirPaginaImpressao() {
+      console.log("EtapasScript: Abrindo página de impressão.");
+      if (!CotacaoIndividualScript_cotacaoIdAtual) {
+        cotacaoindividual_exibirFeedback("ID da Cotação não encontrado.", true, 5000);
+        return;
+      }
+      // No Firebase, a geração de PDF é diferente.
+      // O ideal é abrir uma nova aba com uma view que buscará os dados e gerará o PDF no cliente.
+      const url = `/views/ImprimirPedidosView.html?idCotacao=${CotacaoIndividualScript_cotacaoIdAtual}`;
+      window.open(url, '_blank');
+    }
+
+    //####################################################################################################
+    // FIM DO MÓDULO DE ETAPAS (CLIENT-SIDE)
+    //####################################################################################################
+
 
   </script>
 

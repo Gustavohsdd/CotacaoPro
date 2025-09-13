@@ -9,6 +9,8 @@ export const cotacaoindividualRouter = Router();
 const COTACOES_COLLECTION = 'cotacoes';
 const PRODUTOS_COLLECTION = 'produtos';
 const SUBPRODUTOS_COLLECTION = 'subprodutos';
+const FORNECEDORES_COLLECTION = 'fornecedores';
+const CADASTROS_COLLECTION = 'cadastros';
 
 //####################################################################################################
 // MÓDULO: COTACAO INDIVIDUAL (SERVER-SIDE CRUD)
@@ -514,5 +516,415 @@ cotacaoindividualRouter.post('/cotacaoindividual/acrescentar-itens', async (req,
     } catch (error) {
         logger.error(`ERRO CRÍTICO na rota /cotacaoindividual/acrescentar-itens:`, error);
         res.status(500).json({ success: false, message: `Erro geral no servidor: ${error.message}` });
+    }
+});
+
+//####################################################################################################
+// MÓDULO: COTACAO INDIVIDUAL (SERVER-SIDE)
+// BLOCO ETAPAS - Realiza as funções do menu etapas.
+//####################################################################################################
+
+/**
+ * ETAPA 1: Salva os dados da contagem de estoque.
+ * Atualiza o estoque mínimo na coleção 'produtos' e os dados de 'Estoque Atual' e 'Comprar' na cotação.
+ */
+cotacaoindividualRouter.post('/cotacaoindividual/salvar-contagem', async (req, res) => {
+    const { idCotacao, dadosContagem } = req.body;
+    logger.info(`API: Salvando contagem de estoque para cotação ID '${idCotacao}'.`, { itemCount: dadosContagem.length });
+
+    if (!idCotacao || !Array.isArray(dadosContagem) || dadosContagem.length === 0) {
+        return res.status(400).json({ success: false, message: "Dados insuficientes para salvar a contagem." });
+    }
+
+    const db = admin.firestore();
+    const batch = db.batch();
+
+    try {
+        // 1. Atualizar Estoque Mínimo na coleção 'produtos'
+        const produtosRef = db.collection(PRODUTOS_COLLECTION);
+        for (const item of dadosContagem) {
+            if (item.novoEstoqueMinimoProdutoPrincipal !== null && !isNaN(parseFloat(item.novoEstoqueMinimoProdutoPrincipal))) {
+                const querySnapshot = await produtosRef.where("Produto", "==", item.nomeProdutoPrincipal).limit(1).get();
+                if (!querySnapshot.empty) {
+                    const produtoDocRef = querySnapshot.docs[0].ref;
+                    batch.update(produtoDocRef, { "Estoque Minimo": parseFloat(item.novoEstoqueMinimoProdutoPrincipal) });
+                }
+            }
+        }
+        await batch.commit(); // Commit das alterações nos produtos
+
+        // 2. Atualizar 'Estoque Atual' e 'Comprar' na cotação
+        const cotacaoRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
+        const cotacaoDoc = await cotacaoRef.get();
+
+        if (!cotacaoDoc.exists) {
+            throw new Error(`Cotação com ID ${idCotacao} não encontrada.`);
+        }
+
+        const cotacaoData = cotacaoDoc.data();
+        const produtosCotacao = cotacaoData.produtos || [];
+
+        const produtosAtualizados = produtosCotacao.map(grupoProduto => {
+            const contagemCorrespondente = dadosContagem.find(c => c.nomeProdutoPrincipal === grupoProduto.Produto);
+            if (contagemCorrespondente) {
+                const estoqueAtual = contagemCorrespondente.estoqueAtualContagem !== null ? parseFloat(contagemCorrespondente.estoqueAtualContagem) : null;
+                const comprarSugestao = contagemCorrespondente.comprarSugestao !== null ? parseFloat(contagemCorrespondente.comprarSugestao) : null;
+
+                // Atualiza o campo 'Estoque Atual' no nível do produto principal
+                grupoProduto['Estoque Atual'] = `Estoque Atual: ${estoqueAtual ?? 'N/A'} / Comprar: ${comprarSugestao ?? 'N/A'}`;
+
+                // Atualiza o campo 'Comprar' em cada item do grupo, se a sugestão foi dada
+                if (comprarSugestao !== null) {
+                    grupoProduto.itens = grupoProduto.itens.map(item => ({
+                        ...item,
+                        Comprar: comprarSugestao
+                    }));
+                }
+            }
+            return grupoProduto;
+        });
+
+        await cotacaoRef.update({ produtos: produtosAtualizados, "Status da Cotação": "Contagem de Estoque" });
+
+        res.status(200).json({ success: true, message: "Contagem de estoque salva com sucesso!" });
+
+    } catch (error) {
+        logger.error(`Erro ao salvar contagem de estoque para cotação ID '${idCotacao}':`, error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
+    }
+});
+
+/**
+ * ETAPA 2: Retira produtos principais (e seus subprodutos) de uma cotação.
+ */
+cotacaoindividualRouter.post('/cotacaoindividual/retirar-produtos', async (req, res) => {
+    const { idCotacao, nomesProdutosPrincipaisParaExcluir } = req.body;
+    logger.info(`API: Retirando produtos da cotação ID '${idCotacao}'.`, { produtos: nomesProdutosPrincipaisParaExcluir });
+
+    if (!idCotacao || !Array.isArray(nomesProdutosPrincipaisParaExcluir)) {
+        return res.status(400).json({ success: false, message: "Dados inválidos." });
+    }
+
+    const db = admin.firestore();
+    const cotacaoRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
+
+    try {
+        const docSnap = await cotacaoRef.get();
+        if (!docSnap.exists) {
+            throw new Error("Cotação não encontrada.");
+        }
+
+        const cotacaoData = docSnap.data();
+        const produtosAtuais = cotacaoData.produtos || [];
+
+        const produtosFiltrados = produtosAtuais.filter(
+            grupoProduto => !nomesProdutosPrincipaisParaExcluir.includes(grupoProduto.Produto)
+        );
+
+        await cotacaoRef.update({ produtos: produtosFiltrados });
+
+        res.status(200).json({ success: true, message: "Produtos retirados com sucesso!" });
+    } catch (error) {
+        logger.error(`Erro ao retirar produtos da cotação ID '${idCotacao}':`, error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
+    }
+});
+
+/**
+ * ETAPA 3: Atualiza o status da cotação. A lógica de links de fornecedor foi removida
+ * pois não se aplica da mesma forma (será tratada em um módulo de portal separado).
+ */
+cotacaoindividualRouter.post('/cotacaoindividual/atualizar-status', async (req, res) => {
+    const { idCotacao, novoStatus } = req.body;
+    logger.info(`API: Atualizando status da cotação ID '${idCotacao}' para '${novoStatus}'.`);
+
+    if (!idCotacao || !novoStatus) {
+        return res.status(400).json({ success: false, message: "ID da cotação e novo status são obrigatórios." });
+    }
+
+    const db = admin.firestore();
+    const cotacaoRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
+
+    try {
+        await cotacaoRef.update({ "Status da Cotação": novoStatus });
+        res.status(200).json({ success: true, message: `Status atualizado para "${novoStatus}".` });
+    } catch (error) {
+        logger.error(`Erro ao atualizar status da cotação ID '${idCotacao}':`, error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
+    }
+});
+
+/**
+ * ETAPA 4: Retira subprodutos específicos de uma cotação.
+ */
+cotacaoindividualRouter.post('/cotacaoindividual/retirar-subprodutos', async (req, res) => {
+    const { idCotacao, subprodutosParaExcluir } = req.body;
+    logger.info(`API: Retirando subprodutos da cotação ID '${idCotacao}'.`, { count: subprodutosParaExcluir.length });
+
+    if (!idCotacao || !Array.isArray(subprodutosParaExcluir)) {
+        return res.status(400).json({ success: false, message: "Dados inválidos." });
+    }
+
+    const db = admin.firestore();
+    const cotacaoRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
+
+    try {
+        const docSnap = await cotacaoRef.get();
+        if (!docSnap.exists) {
+            throw new Error("Cotação não encontrada.");
+        }
+
+        const cotacaoData = docSnap.data();
+        const produtosAtuais = cotacaoData.produtos || [];
+
+        const produtosAtualizados = produtosAtuais.map(grupoProduto => {
+            const subprodutosParaManter = grupoProduto.itens.filter(item => {
+                return !subprodutosParaExcluir.some(aExcluir =>
+                    aExcluir.Produto === grupoProduto.Produto &&
+                    aExcluir.SubProdutoChave === (item.SubProduto || item.Subproduto) &&
+                    aExcluir.Fornecedor === item.Fornecedor
+                );
+            });
+            return { ...grupoProduto, itens: subprodutosParaManter };
+        });
+
+        // Remove grupos de produtos que ficaram sem nenhum item
+        const produtosFinais = produtosAtualizados.filter(grupo => grupo.itens.length > 0);
+
+        await cotacaoRef.update({ produtos: produtosFinais });
+
+        res.status(200).json({ success: true, message: "Subprodutos sem preço retirados com sucesso." });
+    } catch (error) {
+        logger.error(`Erro ao retirar subprodutos da cotação ID '${idCotacao}':`, error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
+    }
+});
+
+/**
+ * ETAPA 5: Busca dados para a etapa de faturamento.
+ */
+cotacaoindividualRouter.get('/cotacaoindividual/dados-faturamento', async (req, res) => {
+    logger.info("API: Buscando dados para etapa de faturamento.");
+    const db = admin.firestore();
+    try {
+        // Busca empresas da coleção 'cadastros'
+        const empresasSnap = await db.collection('cadastros').get();
+        const empresas = empresasSnap.docs.map(doc => doc.data().Empresas).filter(Boolean);
+
+        // Busca pedidos mínimos da coleção 'fornecedores'
+        const fornecedoresSnap = await db.collection('fornecedores').get();
+        const pedidosMinimos = {};
+        fornecedoresSnap.forEach(doc => {
+            const data = doc.data();
+            const valorMinimo = parseFloat(String(data['Pedido Mínimo (R$)'] || '0').replace(',', '.'));
+            if (data.Fornecedor && valorMinimo > 0) {
+                pedidosMinimos[data.Fornecedor] = valorMinimo;
+            }
+        });
+
+        res.status(200).json({ success: true, empresas, pedidosMinimos });
+    } catch (error) {
+        logger.error("Erro ao buscar dados para faturamento:", error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
+    }
+});
+
+/**
+ * ETAPA 5: Salva as empresas faturadas em lote para uma cotação.
+ */
+cotacaoindividualRouter.post('/cotacaoindividual/salvar-faturamento', async (req, res) => {
+    const { idCotacao, alteracoes } = req.body;
+    logger.info(`API: Salvando faturamento para cotação ID '${idCotacao}'.`, { count: alteracoes.length });
+
+    if (!idCotacao || !Array.isArray(alteracoes)) {
+        return res.status(400).json({ success: false, message: "Dados inválidos." });
+    }
+
+    const db = admin.firestore();
+    const cotacaoRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
+
+    try {
+        const docSnap = await cotacaoRef.get();
+        if (!docSnap.exists) {
+            throw new Error("Cotação não encontrada.");
+        }
+
+        const cotacaoData = docSnap.data();
+        const produtosAtuais = cotacaoData.produtos || [];
+
+        const produtosAtualizados = produtosAtuais.map(grupoProduto => {
+            const itensAtualizados = grupoProduto.itens.map(item => {
+                const alteracaoCorrespondente = alteracoes.find(alt =>
+                    alt.Produto === grupoProduto.Produto &&
+                    alt.SubProdutoChave === (item.SubProduto || item.Subproduto) &&
+                    alt.Fornecedor === item.Fornecedor
+                );
+
+                if (alteracaoCorrespondente) {
+                    return { ...item, "Empresa Faturada": alteracaoCorrespondente["Empresa Faturada"] };
+                }
+                return item;
+            });
+            return { ...grupoProduto, itens: itensAtualizados };
+        });
+
+        await cotacaoRef.update({ produtos: produtosAtualizados });
+
+        res.status(200).json({ success: true, message: "Faturamento salvo com sucesso!" });
+    } catch (error) {
+        logger.error(`Erro ao salvar faturamento da cotação ID '${idCotacao}':`, error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
+    }
+});
+
+/**
+ * ETAPA 6: Busca dados para a etapa de condições de pagamento.
+ */
+cotacaoindividualRouter.get('/cotacaoindividual/dados-condicoes', async (req, res) => {
+    logger.info("API: Buscando dados para etapa de condições de pagamento.");
+    const db = admin.firestore();
+    try {
+        const fornecedoresSnap = await db.collection('fornecedores').get();
+        const condicoes = {};
+        fornecedoresSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.Fornecedor && data['Condições de Pagamento']) {
+                condicoes[data.Fornecedor] = data['Condições de Pagamento'];
+            }
+        });
+        res.status(200).json({ success: true, condicoes });
+    } catch (error) {
+        logger.error("Erro ao buscar dados de condições:", error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
+    }
+});
+
+/**
+ * ETAPA 6: Salva as condições de pagamento para os itens de uma cotação.
+ */
+cotacaoindividualRouter.post('/cotacaoindividual/salvar-condicoes', async (req, res) => {
+    const { idCotacao, dadosPagamento } = req.body;
+    logger.info(`API: Salvando condições de pagamento para cotação ID '${idCotacao}'.`, { count: dadosPagamento.length });
+
+    if (!idCotacao || !Array.isArray(dadosPagamento)) {
+        return res.status(400).json({ success: false, message: "Dados inválidos." });
+    }
+
+    const db = admin.firestore();
+    const cotacaoRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
+
+    try {
+        const docSnap = await cotacaoRef.get();
+        if (!docSnap.exists) {
+            throw new Error("Cotação não encontrada.");
+        }
+
+        const cotacaoData = docSnap.data();
+        const produtosAtuais = cotacaoData.produtos || [];
+
+        const mapaPagamentos = dadosPagamento.reduce((acc, item) => {
+            const chave = `${item.fornecedor}__${item.empresa}`;
+            acc[chave] = item.condicao;
+            return acc;
+        }, {});
+
+        const produtosAtualizados = produtosAtuais.map(grupoProduto => {
+            const itensAtualizados = grupoProduto.itens.map(item => {
+                const chaveItem = `${item.Fornecedor}__${item['Empresa Faturada']}`;
+                if (mapaPagamentos.hasOwnProperty(chaveItem)) {
+                    return { ...item, "Condição de Pagamento": mapaPagamentos[chaveItem] };
+                }
+                return item;
+            });
+            return { ...grupoProduto, itens: itensAtualizados };
+        });
+
+        await cotacaoRef.update({ produtos: produtosAtualizados, "Status da Cotação": "Definindo Condições de Pagamento" });
+
+        res.status(200).json({ success: true, message: "Condições de pagamento salvas com sucesso." });
+    } catch (error) {
+        logger.error(`Erro ao salvar condições de pagamento da cotação ID '${idCotacao}':`, error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
+    }
+});
+
+/**
+ * ETAPA 7: Busca dados agrupados para a impressão dos pedidos.
+ */
+cotacaoindividualRouter.get('/cotacaoindividual/dados-impressao/:idCotacao', async (req, res) => {
+    const { idCotacao } = req.params;
+    logger.info(`API: Buscando dados para impressão da cotação ID '${idCotacao}'.`);
+    
+    const db = admin.firestore();
+    try {
+        // 1. Buscar CNPJs das empresas
+        const cadastrosSnap = await db.collection('cadastros').get();
+        const mapaCnpj = {};
+        cadastrosSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.Empresas && data.CNPJ) {
+                mapaCnpj[data.Empresas.trim()] = data.CNPJ;
+            }
+        });
+
+        // 2. Buscar a cotação
+        const cotacaoDoc = await db.collection(COTACOES_COLLECTION).doc(String(idCotacao)).get();
+        if (!cotacaoDoc.exists) {
+            return res.status(404).json({ success: false, message: "Cotação não encontrada." });
+        }
+
+        const cotacaoData = cotacaoDoc.data();
+        const pedidosTemporarios = {};
+
+        // 3. Processar e agrupar itens
+        if (cotacaoData.produtos && Array.isArray(cotacaoData.produtos)) {
+            cotacaoData.produtos.forEach(grupoProduto => {
+                grupoProduto.itens.forEach(item => {
+                    const comprarQtd = cotacaoindividual_parseNumeroPtBr(item.Comprar);
+                    if (comprarQtd > 0 && item['Empresa Faturada']) {
+                        const nomeFornecedor = item.Fornecedor;
+                        const nomeEmpresa = item['Empresa Faturada'];
+                        const chaveUnica = `${nomeFornecedor}__${nomeEmpresa}`;
+
+                        if (!pedidosTemporarios[chaveUnica]) {
+                            pedidosTemporarios[chaveUnica] = {
+                                fornecedor: nomeFornecedor,
+                                empresaFaturada: nomeEmpresa,
+                                cnpj: mapaCnpj[nomeEmpresa.trim()] || 'Não informado',
+                                condicaoPagamento: item['Condição de Pagamento'] || 'Não informada',
+                                itens: [],
+                                totalPedido: 0
+                            };
+                        }
+
+                        const itemPedido = {
+                            subProduto: item.SubProduto || item.Subproduto,
+                            un: item.UN,
+                            qtd: comprarQtd,
+                            valorUnit: cotacaoindividual_parseNumeroPtBr(item.Preço),
+                            valorTotal: cotacaoindividual_parseNumeroPtBr(item['Valor Total'])
+                        };
+                        pedidosTemporarios[chaveUnica].itens.push(itemPedido);
+                        pedidosTemporarios[chaveUnica].totalPedido += itemPedido.valorTotal;
+                    }
+                });
+            });
+        }
+        
+        // 4. Estruturar o resultado final agrupado por Fornecedor
+        const dadosFinaisAgrupados = {};
+        for (const chave in pedidosTemporarios) {
+            const pedido = pedidosTemporarios[chave];
+            if (!dadosFinaisAgrupados[pedido.fornecedor]) {
+                dadosFinaisAgrupados[pedido.fornecedor] = [];
+            }
+            dadosFinaisAgrupados[pedido.fornecedor].push(pedido);
+        }
+
+        res.status(200).json({ success: true, dados: dadosFinaisAgrupados });
+
+    } catch (error) {
+        logger.error(`Erro ao buscar dados para impressão da cotação ID '${idCotacao}':`, error);
+        res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
     }
 });
