@@ -1885,7 +1885,8 @@
       async function inicializarPagina() {
         console.log("CotacaoIndividualScript: Iniciando para Firebase...");
 
-        cotacaoindividual_vincularDropdowns(); // <-- ADICIONE ESTA LINHA
+        cotacaoindividual_vincularDropdowns();
+        CotacaoIndividualScript_vincularAcoesMenuEtapas();
 
         const params = cotacaoindividual_obterParametros();
         CotacaoIndividualScript_cotacaoIdAtual = params.idCotacao;
@@ -2130,6 +2131,91 @@
     //####################################################################################################
     // INÍCIO DO MÓDULO DE ETAPAS (CLIENT-SIDE)
     //####################################################################################################
+
+    /**
+           * Vincula os eventos de clique para todos os menus dropdown da página.
+           * Também fecha os menus se o usuário clicar fora deles.
+           */
+    function cotacaoindividual_vincularDropdowns() {
+      const dropdownButtons = document.querySelectorAll('.dropdown-menu-button');
+
+      dropdownButtons.forEach(button => {
+        button.addEventListener('click', function (event) {
+          event.stopPropagation();
+          const content = this.nextElementSibling;
+          const isShown = content.classList.contains('show');
+
+          // Fecha todos os outros dropdowns abertos
+          document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
+            if (openContent !== content) {
+              openContent.classList.remove('show');
+              openContent.previousElementSibling.classList.remove('open');
+            }
+          });
+
+          // Alterna o estado do dropdown atual
+          content.classList.toggle('show', !isShown);
+          this.classList.toggle('open', !isShown);
+        });
+      });
+
+      // Fecha os dropdowns se clicar em qualquer outro lugar da página
+      window.addEventListener('click', function (event) {
+        if (!event.target.matches('.dropdown-menu-button')) {
+          document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
+            openContent.classList.remove('show');
+            openContent.previousElementSibling.classList.remove('open');
+          });
+        }
+      });
+    }
+
+
+    /**
+       * Adiciona os listeners para os links do menu de Etapas, direcionando
+       * cada clique para a função de etapa correspondente.
+       */
+    function CotacaoIndividualScript_vincularAcoesMenuEtapas() {
+      const dropdownEtapas = document.getElementById('CotacaoIndividualScript_menuEtapasDropdown');
+      if (!dropdownEtapas) {
+        console.error("Menu de Etapas não encontrado!");
+        return;
+      }
+
+      dropdownEtapas.addEventListener('click', function (event) {
+        event.preventDefault();
+        const target = event.target;
+        if (target.tagName !== 'A' || !target.dataset.action) {
+          return;
+        }
+
+        const action = target.dataset.action;
+        console.log(`Ação do menu de Etapas acionada: ${action}`);
+
+        // Mapeia a ação do link para a função a ser executada
+        const acoesDasEtapas = {
+          'etapa_contagem_estoque': EtapasScript_ativarModoContagemEstoque,
+          'etapa_retirar_produtos': EtapasScript_ativarModoRetirarProdutos,
+          'etapa_enviar_fornecedores': EtapasScript_iniciarEnvioParaFornecedores,
+          'etapa_realizar_cotacao': EtapasScript_ativarModoRealizarCotacao,
+          'etapa_definir_empresa': EtapasScript_ativarModoDefinirEmpresa,
+          'etapa_definir_condicoes_pagamento': EtapasScript_ativarModoDefinirCondicoesPagamento,
+          'etapa_imprimir_pedidos': EtapasScript_abrirPaginaImpressao
+        };
+
+        const funcaoParaExecutar = acoesDasEtapas[action];
+
+        if (typeof funcaoParaExecutar === 'function') {
+          funcaoParaExecutar();
+          // Fecha o menu após o clique
+          dropdownEtapas.classList.remove('show');
+          dropdownEtapas.previousElementSibling.classList.remove('open');
+        } else {
+          console.warn(`Ação '${action}' não reconhecida.`);
+          cotacaoindividual_exibirFeedback(`Funcionalidade '${target.textContent}' não implementada.`, true);
+        }
+      });
+    }
 
     // --- ETAPA 1: CONTAGEM DE ESTOQUE ---
 
