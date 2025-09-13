@@ -350,11 +350,11 @@
     }
 
     .produto-group-separator-row td {
-      background-color: #add8e6;
+      background-color: #dbeafe;
       padding: 0.6rem 1rem;
       font-weight: 600;
-      color: #020742;
-      border-bottom: 1px solid #38bdf8;
+      color: #1e3a8a;
+      border-bottom: 1px solid #93c5fd;
       white-space: normal;
     }
 
@@ -778,6 +778,33 @@
     .cotacao-individual-container {
       transition: width 0.3s ease-in-out;
     }
+
+    .view-tabs-container {
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #d1d5db;
+      /* Linha cinza para o container de abas */
+    }
+
+    .view-tab-btn {
+      padding: 0.75rem 0.5rem;
+      border: none;
+      background-color: transparent;
+      color: #374151;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: -1px;
+      border-bottom: 3px solid transparent;
+    }
+
+    .view-tab-btn.active {
+      color: #1D4ED8;
+      font-weight: 600;
+      border-bottom-color: #1D4ED8;
+    }
+
+    .hidden-by-category {
+      display: none;
+    }
   </style>
 </head>
 
@@ -1179,10 +1206,9 @@
           return;
         }
 
-        // Agrupa primeiro por categoria
+        // Agrupa os dados por categoria
         const agrupadoPorCategoria = gruposDeProdutos.reduce((acc, produto) => {
-          // Assume que o primeiro item do grupo de produto tem a categoria representativa
-          const categoria = produto.itens[0]?.Categoria || 'Sem Categoria';
+          const categoria = (produto.itens && produto.itens[0]?.Categoria) ? produto.itens[0].Categoria : 'Sem Categoria';
           if (!acc[categoria]) {
             acc[categoria] = [];
           }
@@ -1193,9 +1219,8 @@
         const categoriasOrdenadas = Object.keys(agrupadoPorCategoria).sort();
 
         categoriasOrdenadas.forEach(nomeCategoria => {
-          // Linha da Categoria (Cabeçalho do Acordeão)
           const categoriaRow = tbody.insertRow();
-          categoriaRow.className = 'categoria-accordion-header-row expanded'; // Inicia expandido
+          categoriaRow.className = 'categoria-accordion-header-row expanded';
           const categoriaCell = categoriaRow.insertCell();
           categoriaCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
           categoriaCell.innerHTML = `
@@ -1208,7 +1233,6 @@
           const contentRows = [];
 
           agrupadoPorCategoria[nomeCategoria].forEach(grupoProduto => {
-            // Linha do Produto Principal (Separador)
             const produtoRow = tbody.insertRow();
             produtoRow.className = 'produto-group-separator-row';
             const produtoCell = produtoRow.insertCell();
@@ -1220,7 +1244,6 @@
             `;
             contentRows.push(produtoRow);
 
-            // Linhas dos SubProdutos (Itens)
             if (grupoProduto.itens && Array.isArray(grupoProduto.itens)) {
               grupoProduto.itens.forEach(item => {
                 const subProdutoRow = tbody.insertRow();
@@ -1232,17 +1255,29 @@
                 CotacaoIndividualScript_cabecalhosVisiveis.forEach(cabecalho => {
                   const td = subProdutoRow.insertCell();
                   let valor = item[cabecalho];
-                  if (valor === undefined || valor === null) {
-                    valor = '';
+                  if (valor === undefined || valor === null) valor = '';
+
+                  // Formatação especial para colunas numéricas
+                  if (['Preço', 'Preço por Fator', 'Valor Total'].includes(cabecalho)) {
+                    td.textContent = cotacaoindividual_formatarPreco(valor);
+                  } else if (['Fator', 'Comprar'].includes(cabecalho)) {
+                    const num = cotacaoindividual_parseNumeroPtBr(valor);
+                    td.textContent = !isNaN(num) ? num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '';
+                  } else {
+                    td.textContent = valor;
                   }
-                  td.textContent = valor;
+
+                  // Aplica cores de fundo
+                  if (CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]) {
+                    td.classList.add(CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]);
+                  }
                 });
                 contentRows.push(subProdutoRow);
               });
             }
           });
 
-          // Lógica do Acordeão
+          // CORREÇÃO: Lógica do acordeão para recolher/expandir
           categoriaRow.addEventListener('click', () => {
             const isExpanded = categoriaRow.classList.toggle('expanded');
             const icon = categoriaRow.querySelector('.categoria-accordion-icon');
@@ -1250,8 +1285,6 @@
               icon.style.transform = isExpanded ? 'rotate(90deg)' : 'rotate(0deg)';
             }
             contentRows.forEach(row => {
-              // A classe 'hidden-by-category' deve ser usada para controlar a visibilidade
-              // e não deve interferir com a busca.
               row.classList.toggle('hidden-by-category', !isExpanded);
             });
           });

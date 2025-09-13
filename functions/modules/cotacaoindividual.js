@@ -233,12 +233,12 @@ cotacaoindividualRouter.post('/cotacaoindividual/detalhes', async (req, res) => 
             return res.status(500).json({ success: false, message: `Falha ao buscar produtos para cotação ID ${idCotacao}.` });
         }
         
-        // CORREÇÃO: Enviamos os dados já agrupados e a data de abertura
+        // CORREÇÃO: Enviamos os dados já agrupados, a data de abertura e a lista de cabeçalhos fixa.
         res.status(200).json({
             success: true,
             dados: resultado.produtos, // A estrutura aninhada de produtos e itens
             dataAbertura: resultado.dataAbertura,
-            cabecalhos: ["SubProduto", "Fornecedor", "Tamanho", "UN", "Fator", "Preço", "Preço por Fator", "Comprar", "Valor Total", "Economia em Cotação", "Empresa Faturada", "Condição de Pagamento"],
+            cabecalhos: ["SubProduto", "Fornecedor", "Tamanho", "UN", "Fator", "Preço", "Preço por Fator", "Comprar", "Valor Total"],
             message: `Dados da cotação ${idCotacao} carregados com sucesso.`
         });
     } catch (error) {
@@ -246,7 +246,6 @@ cotacaoindividualRouter.post('/cotacaoindividual/detalhes', async (req, res) => 
         res.status(500).json({ success: false, message: "Erro no servidor ao processar detalhes da cotação." });
     }
 });
-
 
 /**
  * Rota para salvar a alteração de uma única célula em um item da cotação.
