@@ -60,10 +60,10 @@ function cotacoes_parseData(dateString) {
 }
 
 /**
- * Agrupa os itens de cotação da planilha na estrutura de Documento com Sub-coleção (Array de Itens).
- * Cada linha da planilha é um item, e agrupamos eles pelo 'ID da Cotação', criando um documento
- * principal para a cotação e aninhando os itens em um array 'itens'.
- * ESTA FUNÇÃO FOI ATUALIZADA PARA CRIAR A ESTRUTURA DE DADOS SOLICITADA.
+ * Agrupa os itens de cotação da planilha na estrutura de Documento com Sub-coleção aninhada por PRODUTO.
+ * Cada linha da planilha é um item. Os itens são agrupados pelo 'ID da Cotação'. Dentro de cada
+ * cotação, os itens são agrupados novamente pelo campo 'Produto', criando a estrutura final.
+ * ESTA FUNÇÃO FOI ATUALIZADA PARA MOVER O 'ESTOQUE ATUAL' PARA O NÍVEL DO PRODUTO.
  */
 function cotacoes_agruparCotacoes(data) {
     if (!data || data.length < 2) {
@@ -74,7 +74,6 @@ function cotacoes_agruparCotacoes(data) {
     const rows = data.slice(1);
     const cotacoesAgrupadas = {};
 
-    // Lista de todos os cabeçalhos que devem ser tratados como números.
     const camposNumericos = [
         'Preço', 'Preço por Fator', 'Valor Total', 'Economia em Cotação',
         'Estoque Mínimo', 'Fator', 'Estoque Atual', 'Quantidade Recebida',
@@ -82,54 +81,66 @@ function cotacoes_agruparCotacoes(data) {
     ];
 
     rows.forEach(row => {
-        // Objeto temporário para armazenar todos os dados da linha atual
         const itemDaLinha = {};
         headers.forEach((header, index) => {
             let value = row[index] !== undefined && row[index] !== null ? row[index] : "";
 
-            // Limpeza e conversão de tipos de dados
             if (camposNumericos.includes(header)) {
-                // Converte para número, tratando vírgula como decimal. Se falhar, vira 0.
                 value = parseFloat(String(value).replace(',', '.')) || 0;
             } else if (header === 'Data Abertura') {
                 const parsedDate = cotacoes_parseData(value);
-                // Apenas converte para Timestamp se a data for válida
-                if (parsedDate) {
-                    value = admin.firestore.Timestamp.fromDate(parsedDate);
-                } else {
-                    value = null; // Salva como nulo se a data for inválida
-                }
+                value = parsedDate ? admin.firestore.Timestamp.fromDate(parsedDate) : null;
             }
             itemDaLinha[header] = value;
         });
 
         const cotacaoId = itemDaLinha['ID da Cotação'];
-        if (!cotacaoId) {
-            return; // Pula linhas que não têm um ID de cotação
+        const nomeProduto = itemDaLinha['Produto'];
+        
+        if (!cotacaoId || !nomeProduto) {
+            return;
         }
 
-        // Se for a primeira vez que encontramos essa cotação, criamos sua estrutura principal.
         if (!cotacoesAgrupadas[cotacaoId]) {
             cotacoesAgrupadas[cotacaoId] = {
-                idCotacao: cotacaoId, // Este campo será usado como ID do documento no Firestore
+                idCotacao: cotacaoId,
                 "Data Abertura": itemDaLinha['Data Abertura'],
                 "Status da Cotação": itemDaLinha['Status da Cotação'],
-                itens: [] // O array que vai conter todos os subprodutos/itens
+                produtos: [],
+                _produtosMap: new Map() 
             };
         }
 
-        // Criamos um objeto de item limpo, removendo os campos que já estão no nível principal do documento.
-        // Isso evita a duplicação de dados dentro do array 'itens'.
+        const cotacaoAtual = cotacoesAgrupadas[cotacaoId];
+        let produtoGrupo = cotacaoAtual._produtosMap.get(nomeProduto);
+
+        if (!produtoGrupo) {
+            produtoGrupo = {
+                "Produto": nomeProduto,
+                "Estoque Minimo": itemDaLinha['Estoque Minimo'],
+                "Estoque Atual": itemDaLinha['Estoque Atual'], // <-- AJUSTE 1: Adicionado aqui
+                itens: [] 
+            };
+            cotacaoAtual.produtos.push(produtoGrupo);
+            cotacaoAtual._produtosMap.set(nomeProduto, produtoGrupo);
+        }
+
         const itemParaArray = { ...itemDaLinha };
+        
         delete itemParaArray['ID da Cotação'];
         delete itemParaArray['Data Abertura'];
         delete itemParaArray['Status da Cotação'];
+        delete itemParaArray['Produto'];
+        delete itemParaArray['Estoque Minimo'];
+        delete itemParaArray['Estoque Atual']; // <-- AJUSTE 2: Removido aqui
 
-        // Adicionamos o objeto do item (representando o subproduto) ao array 'itens' da cotação correta.
-        cotacoesAgrupadas[cotacaoId].itens.push(itemParaArray);
+        produtoGrupo.itens.push(itemParaArray);
     });
+    
+    const resultadoFinal = Object.values(cotacoesAgrupadas);
+    resultadoFinal.forEach(cotacao => delete cotacao._produtosMap);
 
-    return Object.values(cotacoesAgrupadas);
+    return resultadoFinal;
 }
 
 /**
@@ -251,7 +262,7 @@ cotacoesRouter.post('/cotacoes/import', async (req, res) => {
 /**
  * Rota para obter os resumos de cotações do Firestore.
  * ESTA VERSÃO FOI CORRIGIDA PARA LER A NOVA ESTRUTURA DE DOCUMENTOS,
- * COM UM ARRAY 'itens' ANINHADO.
+ * COM UM ARRAY 'produtos' E, DENTRO DELE, UM ARRAY 'itens' ANINHADO.
  */
 cotacoesRouter.get('/cotacoes/resumos', async (req, res) => {
     logger.info("API: Recebida requisição para obter resumos de cotações.");
@@ -266,12 +277,20 @@ cotacoesRouter.get('/cotacoes/resumos', async (req, res) => {
         const arrayDeResumos = snapshot.docs.map(doc => {
             const cotacao = doc.data();
             
-            // Extrai as categorias únicas do array 'itens'
+            // Extrai as categorias únicas da nova estrutura aninhada
             const categorias = new Set();
-            if (cotacao.itens && Array.isArray(cotacao.itens)) {
-                cotacao.itens.forEach(item => {
-                    if (item.Categoria) {
-                        categorias.add(item.Categoria);
+            // Verifica se 'produtos' existe e é um array
+            if (cotacao.produtos && Array.isArray(cotacao.produtos)) {
+                // Itera sobre cada grupo de produto na cotação
+                cotacao.produtos.forEach(produto => {
+                    // Dentro de cada produto, verifica se 'itens' existe e é um array
+                    if (produto.itens && Array.isArray(produto.itens)) {
+                        // Itera sobre os subprodutos (itens) para coletar as categorias
+                        produto.itens.forEach(item => {
+                            if (item.Categoria) {
+                                categorias.add(item.Categoria);
+                            }
+                        });
                     }
                 });
             }
