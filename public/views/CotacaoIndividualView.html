@@ -373,9 +373,10 @@
 
     .produto-group-separator-row td .contagem-fields-container {
       display: flex;
-      align-items: center;
-      flex-wrap: nowrap;
+      align-items: left;
+      flex-wrap: wrap;
       gap: 15px;
+      justify-content: flex-end;
     }
 
     .sub-produto-row {
@@ -1178,7 +1179,39 @@
             const tdCell = input.parentElement;
             tdCell.textContent = tdCell.dataset.valorOriginal || '';
           } else if (e.key === 'Enter') {
+            e.preventDefault(); // Impede o comportamento padrão do Enter
+
+            const isComprarColumn = td.dataset.coluna === 'Comprar';
+
+            // Aciona o salvamento da célula atual ao remover o foco
             input.blur();
+
+            // Se a coluna for "Comprar", navega para a próxima
+            if (isComprarColumn) {
+              // Adiciona um pequeno atraso para garantir que o evento 'blur' e o salvamento sejam processados
+              setTimeout(() => {
+                const currentRow = td.closest('tr');
+                const tbody = currentRow.closest('tbody');
+
+                // Pega todas as linhas de subproduto que estão visíveis na tela
+                const allVisibleRows = Array.from(
+                  tbody.querySelectorAll('tr.sub-produto-row')
+                ).filter(row => row.offsetParent !== null); // 'offsetParent' é uma forma segura de verificar a visibilidade
+
+                const currentIndex = allVisibleRows.findIndex(row => row === currentRow);
+
+                // Verifica se existe uma próxima linha
+                if (currentIndex !== -1 && currentIndex < allVisibleRows.length - 1) {
+                  const nextRow = allVisibleRows[currentIndex + 1];
+                  const nextComprarCell = nextRow.querySelector('td[data-coluna="Comprar"]');
+
+                  if (nextComprarCell) {
+                    // Clica na próxima célula para ativar o modo de edição
+                    nextComprarCell.click();
+                  }
+                }
+              }, 50); // 50ms de atraso
+            }
           }
         });
       }
