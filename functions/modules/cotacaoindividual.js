@@ -149,84 +149,83 @@ async function cotacaoindividual_criarMapaEstoqueMinimoProdutos() {
  * @return {Promise<Array<object>|null>} Um array de objetos (itens), ou null em caso de erro.
  */
 async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
-    logger.info(`cotacaoindividual_buscarProdutosPorIdCotacao: Buscando produtos para ID '${idCotacaoAlvo}'.`);
+  logger.info(`cotacaoindividual_buscarProdutosPorIdCotacao: Buscando produtos para ID '${idCotacaoAlvo}'.`);
 
-    const [mapaEstoqueMinimo, mapaDemandaMedia] = await Promise.all([
-        cotacaoindividual_criarMapaEstoqueMinimoProdutos(),
-        cotacaoindividual_criarMapaDemandaMediaProdutos()
-    ]);
+  const [mapaEstoqueMinimo, mapaDemandaMedia] = await Promise.all([
+    cotacaoindividual_criarMapaEstoqueMinimoProdutos(),
+    cotacaoindividual_criarMapaDemandaMediaProdutos()
+  ]);
 
-    const db = admin.firestore();
-    try {
-        const docRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacaoAlvo));
-        const docSnap = await docRef.get();
+  const db = admin.firestore();
+  try {
+    const docRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacaoAlvo));
+    const docSnap = await docRef.get();
 
-        if (!docSnap.exists) {
-            logger.warn(`Cotação com ID '${idCotacaoAlvo}' não encontrada.`);
-            return { produtos: [], dataAbertura: null };
-        }
-
-        const cotacao = docSnap.data();
-
-        if (!cotacao.produtos || !Array.isArray(cotacao.produtos)) {
-            logger.warn(`Cotação ID '${idCotacaoAlvo}' não possui a estrutura de produtos aninhados esperada.`);
-            return { produtos: [], dataAbertura: cotacao['Data Abertura'] || null };
-        }
-
-        const produtosEnriquecidos = cotacao.produtos.map(grupoProduto => {
-            const nomeProdutoPrincipal = grupoProduto.Produto ? String(grupoProduto.Produto).trim() : null;
-            
-            let estoqueMinimo = null;
-            let demandaMedia = null;
-
-            if (nomeProdutoPrincipal) {
-                estoqueMinimo = mapaEstoqueMinimo.hasOwnProperty(nomeProdutoPrincipal)
-                    ? mapaEstoqueMinimo[nomeProdutoPrincipal]
-                    : null;
-                demandaMedia = mapaDemandaMedia.hasOwnProperty(nomeProdutoPrincipal)
-                    ? mapaDemandaMedia[nomeProdutoPrincipal]
-                    : null;
-            }
-
-            // Garante que cada item tenha as chaves necessárias para a tabela
-            const itensFormatados = (grupoProduto.itens || []).map(item => {
-                return {
-                    ...item,
-                    Produto: nomeProdutoPrincipal,
-                    _subProdutoOriginalPersistido: item.SubProduto || item.Subproduto || null
-                };
-            });
-
-            // Retorna o grupo do produto com os novos campos de resumo
-            return {
-                ...grupoProduto,
-                itens: itensFormatados,
-                // Adiciona os campos de resumo diretamente no objeto do grupo
-                estoqueMinimoProdutoPrincipal: estoqueMinimo,
-                demandaMediaProdutoPrincipal: demandaMedia,
-                // O 'Estoque Atual' já vem da importação, então apenas garantimos que ele exista
-                estoqueAtualProdutoPrincipal: grupoProduto.hasOwnProperty("Estoque Atual")
-                    ? grupoProduto["Estoque Atual"]
-                    : null
-            };
-        });
-        
-        const dataAbertura = cotacao['Data Abertura'] && cotacao['Data Abertura'].toDate 
-            ? cotacao['Data Abertura'].toDate().toISOString() 
-            : null;
-
-        logger.info(`cotacaoindividual_buscarProdutosPorIdCotacao: ${produtosEnriquecidos.length} grupos de produtos encontrados e enriquecidos para ID '${idCotacaoAlvo}'.`);
-        
-        return {
-            produtos: produtosEnriquecidos,
-            dataAbertura: dataAbertura
-        };
-
-    } catch (e) {
-        logger.error(`ERRO em cotacaoindividual_buscarProdutosPorIdCotacao para ID "${idCotacaoAlvo}":`, e);
-        return null;
+    if (!docSnap.exists) {
+      logger.warn(`Cotação com ID '${idCotacaoAlvo}' não encontrada.`);
+      return { produtos: [], dataAbertura: null };
     }
+
+    const cotacao = docSnap.data();
+
+    if (!cotacao.produtos || !Array.isArray(cotacao.produtos)) {
+      logger.warn(`Cotação ID '${idCotacaoAlvo}' não possui a estrutura de produtos aninhados esperada.`);
+      return { produtos: [], dataAbertura: cotacao['Data Abertura'] || null };
+    }
+
+    const produtosEnriquecidos = cotacao.produtos.map((grupoProduto) => {
+      const nomeProdutoPrincipal = grupoProduto.Produto ? String(grupoProduto.Produto).trim() : null;
+
+      let estoqueMinimo = null;
+      let demandaMedia = null;
+
+      if (nomeProdutoPrincipal) {
+        estoqueMinimo = Object.prototype.hasOwnProperty.call(mapaEstoqueMinimo, nomeProdutoPrincipal)
+          ? mapaEstoqueMinimo[nomeProdutoPrincipal]
+          : null;
+        demandaMedia = Object.prototype.hasOwnProperty.call(mapaDemandaMedia, nomeProdutoPrincipal)
+          ? mapaDemandaMedia[nomeProdutoPrincipal]
+          : null;
+      }
+
+      // Normaliza cada item e preserva o subproduto original persistido
+      const itensFormatados = (grupoProduto.itens || []).map((item) => ({
+        ...item,
+        Produto: nomeProdutoPrincipal,
+        _subProdutoOriginalPersistido: item.SubProduto || item.Subproduto || null
+      }));
+
+      return {
+        ...grupoProduto,
+        itens: itensFormatados,
+        // resumo do produto principal (usado na UI)
+        estoqueMinimoProdutoPrincipal: estoqueMinimo,
+        demandaMediaProdutoPrincipal: demandaMedia,
+        estoqueAtualProdutoPrincipal: Object.prototype.hasOwnProperty.call(grupoProduto, 'Estoque Atual')
+          ? grupoProduto['Estoque Atual']
+          : null
+      };
+    });
+
+    const dataAbertura =
+      cotacao['Data Abertura'] && cotacao['Data Abertura'].toDate
+        ? cotacao['Data Abertura'].toDate().toISOString()
+        : null;
+
+    logger.info(
+      `cotacaoindividual_buscarProdutosPorIdCotacao: ${produtosEnriquecidos.length} grupos de produtos encontrados e enriquecidos para ID '${idCotacaoAlvo}'.`
+    );
+
+    return {
+      produtos: produtosEnriquecidos,
+      dataAbertura
+    };
+  } catch (e) {
+    logger.error(`ERRO em cotacaoindividual_buscarProdutosPorIdCotacao para ID "${idCotacaoAlvo}":`, e);
+    return null;
+  }
 }
+
 
 
 //####################################################################################################
@@ -237,39 +236,49 @@ async function cotacaoindividual_buscarProdutosPorIdCotacao(idCotacaoAlvo) {
 /**
  * Rota para obter os detalhes de uma cotação específica.
  */
-cotacaoindividualRouter.post('/cotacaoindividual/detalhes', async (req, res) => {
-    const { idCotacao } = req.body;
-    logger.info(`API: Recebida requisição para obter detalhes da cotação ID '${idCotacao}'.`);
+cotacaoindividualRouter.post('/detalhes', async (req, res) => {
+  const { idCotacao } = req.body;
+  logger.info(`API: Recebida requisição para obter detalhes da cotação ID '${idCotacao}'.`);
 
-    try {
-        if (!idCotacao) {
-            return res.status(400).json({ success: false, message: "ID da Cotação não fornecido." });
-        }
-
-        const resultado = await cotacaoindividual_buscarProdutosPorIdCotacao(idCotacao);
-
-        if (resultado === null) {
-            return res.status(500).json({ success: false, message: `Falha ao buscar produtos para cotação ID ${idCotacao}.` });
-        }
-
-        // CORREÇÃO: Enviamos os dados já agrupados, a data de abertura e a lista de cabeçalhos fixa.
-        res.status(200).json({
-            success: true,
-            dados: resultado.produtos, // A estrutura aninhada de produtos e itens
-            dataAbertura: resultado.dataAbertura,
-            cabecalhos: ["SubProduto", "Fornecedor", "Tamanho", "UN", "Fator", "Preço", "Preço por Fator", "Comprar", "Valor Total"],
-            message: `Dados da cotação ${idCotacao} carregados com sucesso.`
-        });
-    } catch (error) {
-        logger.error(`ERRO na rota /cotacaoindividual/detalhes para ID '${idCotacao}':`, error);
-        res.status(500).json({ success: false, message: "Erro no servidor ao processar detalhes da cotação." });
+  try {
+    if (!idCotacao) {
+      return res.status(400).json({ success: false, message: 'ID da Cotação não fornecido.' });
     }
+
+    const resultado = await cotacaoindividual_buscarProdutosPorIdCotacao(idCotacao);
+    if (resultado === null) {
+      return res
+        .status(500)
+        .json({ success: false, message: `Falha ao buscar produtos for cotação ID ${idCotacao}.` });
+    }
+
+    return res.status(200).json({
+      success: true,
+      dados: resultado.produtos,
+      dataAbertura: resultado.dataAbertura,
+      cabecalhos: [
+        'SubProduto',
+        'Fornecedor',
+        'Tamanho',
+        'UN',
+        'Fator',
+        'Preço',
+        'Preço por Fator',
+        'Comprar',
+        'Valor Total'
+      ],
+      message: `Dados da cotação ${idCotacao} carregados com sucesso.`
+    });
+  } catch (error) {
+    logger.error(`ERRO na rota /detalhes para ID '${idCotacao}':`, error);
+    return res.status(500).json({ success: false, message: 'Erro no servidor ao processar detalhes da cotação.' });
+  }
 });
 
 /**
  * Rota para salvar a alteração de uma única célula em um item da cotação.
  */
-cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res) => {
+cotacaoindividualRouter.post('/salvar-celula', async (req, res) => {
     const { idCotacao, identificadoresLinha, colunaAlterada, novoValor } = req.body;
     logger.info(`API: Recebida requisição para salvar célula:`, { idCotacao, identificadoresLinha, colunaAlterada, novoValor });
 
@@ -382,7 +391,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res
         });
 
     } catch (error) {
-        logger.error(`ERRO na rota /cotacaoindividual/salvar-celula:`, error);
+        logger.error(`ERRO na rota /salvar-celula:`, error);
         res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
     }
 });
@@ -391,7 +400,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-celula', async (req, res
 /**
  * Rota para salvar um conjunto de alterações de um item (vindo do modal de detalhes).
  */
-cotacaoindividualRouter.post('/cotacaoindividual/salvar-detalhes-item', async (req, res) => {
+cotacaoindividualRouter.post('/salvar-detalhes-item', async (req, res) => {
     const { idCotacao, identificadoresLinha, alteracoes } = req.body;
     logger.info(`API: Recebida requisição para salvar detalhes do item:`, { idCotacao, identificadoresLinha, alteracoes });
 
@@ -410,22 +419,44 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-detalhes-item', async (r
             }
 
             const cotacao = docSnap.data();
-            const itens = cotacao.itens || [];
+            const produtosArray = cotacao.produtos || [];
+            let itemModificado = false;
 
-            const itemIndex = itens.findIndex(item =>
-                item.Produto === identificadoresLinha.Produto &&
-                item.SubProduto === identificadoresLinha.SubProdutoChave &&
-                item.Fornecedor === identificadoresLinha.Fornecedor
-            );
+            const produtosAtualizados = produtosArray.map(grupoProduto => {
+                // Se não for o grupo de produto correto, retorne como está
+                if (grupoProduto.Produto !== identificadoresLinha.Produto) {
+                    return grupoProduto;
+                }
 
-            if (itemIndex === -1) {
+                // Encontre o índice do item a ser atualizado dentro do grupo
+                const itemIndex = (grupoProduto.itens || []).findIndex(item =>
+                    (item.SubProduto || item.Subproduto) === identificadoresLinha.SubProdutoChave &&
+                    item.Fornecedor === identificadoresLinha.Fornecedor
+                );
+
+                // Se o item não for encontrado, retorne o grupo como está
+                if (itemIndex === -1) {
+                    return grupoProduto;
+                }
+                
+                // Crie uma cópia atualizada dos itens
+                const itensAtualizados = [...grupoProduto.itens];
+                const itemOriginal = itensAtualizados[itemIndex];
+                
+                // Mescla as alterações no item
+                itensAtualizados[itemIndex] = { ...itemOriginal, ...alteracoes };
+                itemModificado = true;
+
+                // Retorna o grupo de produto com a lista de itens atualizada
+                return { ...grupoProduto, itens: itensAtualizados };
+            });
+
+            if (!itemModificado) {
                 throw new Error("Item específico não encontrado na cotação para atualizar.");
             }
-
-            const itemAtualizado = { ...itens[itemIndex], ...alteracoes };
-            itens[itemIndex] = itemAtualizado;
-
-            transaction.update(docRef, { itens: itens });
+            
+            // Atualiza o documento inteiro com o novo array de produtos
+            transaction.update(docRef, { produtos: produtosAtualizados });
         });
 
         res.status(200).json({
@@ -435,7 +466,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-detalhes-item', async (r
         });
 
     } catch (error) {
-        logger.error(`ERRO na rota /cotacaoindividual/salvar-detalhes-item:`, error);
+        logger.error(`ERRO na rota /salvar-detalhes-item:`, error);
         res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
     }
 });
@@ -443,7 +474,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-detalhes-item', async (r
 /**
  * Rota para acrescentar novos itens a uma cotação existente.
  */
-cotacaoindividualRouter.post('/cotacaoindividual/acrescentar-itens', async (req, res) => {
+cotacaoindividualRouter.post('/acrescentar-itens', async (req, res) => {
     const { idCotacao, opcoesCriacao } = req.body;
     logger.info(`API: Recebida requisição para acrescentar itens à cotação ID '${idCotacao}'.`, { opcoesCriacao });
 
@@ -514,7 +545,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/acrescentar-itens', async (req,
         }
 
     } catch (error) {
-        logger.error(`ERRO CRÍTICO na rota /cotacaoindividual/acrescentar-itens:`, error);
+        logger.error(`ERRO CRÍTICO na rota /acrescentar-itens:`, error);
         res.status(500).json({ success: false, message: `Erro geral no servidor: ${error.message}` });
     }
 });
@@ -528,7 +559,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/acrescentar-itens', async (req,
  * ETAPA 1: Salva os dados da contagem de estoque.
  * Atualiza o estoque mínimo na coleção 'produtos' e os dados de 'Estoque Atual' e 'Comprar' na cotação.
  */
-cotacaoindividualRouter.post('/cotacaoindividual/salvar-contagem', async (req, res) => {
+cotacaoindividualRouter.post('/salvar-contagem', async (req, res) => {
     const { idCotacao, dadosContagem } = req.body;
     logger.info(`API: Salvando contagem de estoque para cotação ID '${idCotacao}'.`, { itemCount: dadosContagem.length });
 
@@ -543,48 +574,51 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-contagem', async (req, r
         // 1. Atualizar Estoque Mínimo na coleção 'produtos'
         const produtosRef = db.collection(PRODUTOS_COLLECTION);
         for (const item of dadosContagem) {
-            if (item.novoEstoqueMinimoProdutoPrincipal !== null && !isNaN(parseFloat(item.novoEstoqueMinimoProdutoPrincipal))) {
-                const querySnapshot = await produtosRef.where("Produto", "==", item.nomeProdutoPrincipal).limit(1).get();
-                if (!querySnapshot.empty) {
-                    const produtoDocRef = querySnapshot.docs[0].ref;
-                    batch.update(produtoDocRef, { "Estoque Minimo": parseFloat(item.novoEstoqueMinimoProdutoPrincipal) });
+            if (item?.Produto && (item?.['Estoque Mínimo'] !== undefined)) {
+                const prodSnap = await produtosRef.where('Produto', '==', String(item.Produto).trim()).limit(1).get();
+                if (!prodSnap.empty) {
+                    const docRef = prodSnap.docs[0].ref;
+                    const estoqueMin = Number(item['Estoque Mínimo']) || 0;
+                    batch.update(docRef, { 'Estoque Mínimo': estoqueMin });
                 }
             }
         }
-        await batch.commit(); // Commit das alterações nos produtos
 
-        // 2. Atualizar 'Estoque Atual' e 'Comprar' na cotação
+        // 2. Atualizar 'Estoque Atual' e 'Comprar' dentro da cotação (estrutura aninhada em produtos[].itens)
         const cotacaoRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
-        const cotacaoDoc = await cotacaoRef.get();
-
-        if (!cotacaoDoc.exists) {
-            throw new Error(`Cotação com ID ${idCotacao} não encontrada.`);
+        const cotacaoSnap = await cotacaoRef.get();
+        if (!cotacaoSnap.exists) {
+            return res.status(404).json({ success: false, message: "Cotação não encontrada." });
         }
 
-        const cotacaoData = cotacaoDoc.data();
-        const produtosCotacao = cotacaoData.produtos || [];
+        const cotacaoData = cotacaoSnap.data();
+        const produtosAtualizados = (cotacaoData.produtos || []).map(grupo => {
+            const itensAtualizados = (grupo.itens || []).map(item => {
+                const encontrado = dadosContagem.find(d =>
+                    String(d.Produto).trim() === String(grupo.Produto).trim() &&
+                    String(d.SubProduto).trim() === String(item.SubProduto || item.Subproduto).trim()
+                );
+                if (!encontrado) return item;
 
-        const produtosAtualizados = produtosCotacao.map(grupoProduto => {
-            const contagemCorrespondente = dadosContagem.find(c => c.nomeProdutoPrincipal === grupoProduto.Produto);
-            if (contagemCorrespondente) {
-                const estoqueAtual = contagemCorrespondente.estoqueAtualContagem !== null ? parseFloat(contagemCorrespondente.estoqueAtualContagem) : null;
-                const comprarSugestao = contagemCorrespondente.comprarSugestao !== null ? parseFloat(contagemCorrespondente.comprarSugestao) : null;
+                const estoqueAtual = Number(encontrado['Estoque Atual'] ?? item['Estoque Atual'] ?? 0);
+                const comprar = Number(encontrado['Comprar'] ?? item['Comprar'] ?? 0);
 
-                // Atualiza o campo 'Estoque Atual' no nível do produto principal
-                grupoProduto['Estoque Atual'] = `Estoque Atual: ${estoqueAtual ?? 'N/A'} / Comprar: ${comprarSugestao ?? 'N/A'}`;
+                return {
+                    ...item,
+                    ['Estoque Atual']: estoqueAtual,
+                    ['Comprar']: comprar
+                };
+            });
 
-                // Atualiza o campo 'Comprar' em cada item do grupo, se a sugestão foi dada
-                if (comprarSugestao !== null) {
-                    grupoProduto.itens = grupoProduto.itens.map(item => ({
-                        ...item,
-                        Comprar: comprarSugestao
-                    }));
-                }
-            }
-            return grupoProduto;
+            return { ...grupo, itens: itensAtualizados };
         });
 
-        await cotacaoRef.update({ produtos: produtosAtualizados, "Status da Cotação": "Contagem de Estoque" });
+        batch.update(cotacaoRef, {
+            produtos: produtosAtualizados,
+            "Status da Cotação": "Contagem de Estoque"
+        });
+
+        await batch.commit();
 
         res.status(200).json({ success: true, message: "Contagem de estoque salva com sucesso!" });
 
@@ -597,7 +631,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-contagem', async (req, r
 /**
  * ETAPA 2: Retira produtos principais (e seus subprodutos) de uma cotação.
  */
-cotacaoindividualRouter.post('/cotacaoindividual/retirar-produtos', async (req, res) => {
+cotacaoindividualRouter.post('/retirar-produtos', async (req, res) => {
     const { idCotacao, nomesProdutosPrincipaisParaExcluir } = req.body;
     logger.info(`API: Retirando produtos da cotação ID '${idCotacao}'.`, { produtos: nomesProdutosPrincipaisParaExcluir });
 
@@ -615,10 +649,9 @@ cotacaoindividualRouter.post('/cotacaoindividual/retirar-produtos', async (req, 
         }
 
         const cotacaoData = docSnap.data();
-        const produtosAtuais = cotacaoData.produtos || [];
 
-        const produtosFiltrados = produtosAtuais.filter(
-            grupoProduto => !nomesProdutosPrincipaisParaExcluir.includes(grupoProduto.Produto)
+        const produtosFiltrados = (cotacaoData.produtos || []).filter(grupo =>
+            !nomesProdutosPrincipaisParaExcluir.includes(String(grupo.Produto).trim())
         );
 
         await cotacaoRef.update({ produtos: produtosFiltrados });
@@ -634,7 +667,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/retirar-produtos', async (req, 
  * ETAPA 3: Atualiza o status da cotação. A lógica de links de fornecedor foi removida
  * pois não se aplica da mesma forma (será tratada em um módulo de portal separado).
  */
-cotacaoindividualRouter.post('/cotacaoindividual/atualizar-status', async (req, res) => {
+cotacaoindividualRouter.post('/atualizar-status', async (req, res) => {
     const { idCotacao, novoStatus } = req.body;
     logger.info(`API: Atualizando status da cotação ID '${idCotacao}' para '${novoStatus}'.`);
 
@@ -657,9 +690,9 @@ cotacaoindividualRouter.post('/cotacaoindividual/atualizar-status', async (req, 
 /**
  * ETAPA 4: Retira subprodutos específicos de uma cotação.
  */
-cotacaoindividualRouter.post('/cotacaoindividual/retirar-subprodutos', async (req, res) => {
+cotacaoindividualRouter.post('/retirar-subprodutos', async (req, res) => {
     const { idCotacao, subprodutosParaExcluir } = req.body;
-    logger.info(`API: Retirando subprodutos da cotação ID '${idCotacao}'.`, { count: subprodutosParaExcluir.length });
+    logger.info(`API: Retirando subprodutos da cotação ID '${idCotacao}'.`, { subprodutos: subprodutosParaExcluir });
 
     if (!idCotacao || !Array.isArray(subprodutosParaExcluir)) {
         return res.status(400).json({ success: false, message: "Dados inválidos." });
@@ -675,23 +708,16 @@ cotacaoindividualRouter.post('/cotacaoindividual/retirar-subprodutos', async (re
         }
 
         const cotacaoData = docSnap.data();
-        const produtosAtuais = cotacaoData.produtos || [];
 
-        const produtosAtualizados = produtosAtuais.map(grupoProduto => {
-            const subprodutosParaManter = grupoProduto.itens.filter(item => {
-                return !subprodutosParaExcluir.some(aExcluir =>
-                    aExcluir.Produto === grupoProduto.Produto &&
-                    aExcluir.SubProdutoChave === (item.SubProduto || item.Subproduto) &&
-                    aExcluir.Fornecedor === item.Fornecedor
-                );
-            });
-            return { ...grupoProduto, itens: subprodutosParaManter };
-        });
+        // Remove itens cujo SubProduto esteja na lista
+        const produtosAtualizados = (cotacaoData.produtos || []).map(grupo => {
+            const itensFiltrados = (grupo.itens || []).filter(item =>
+                !subprodutosParaExcluir.includes(String(item.SubProduto || item.Subproduto).trim())
+            );
+            return { ...grupo, itens: itensFiltrados };
+        }).filter(grupo => (grupo.itens || []).length > 0);
 
-        // Remove grupos de produtos que ficaram sem nenhum item
-        const produtosFinais = produtosAtualizados.filter(grupo => grupo.itens.length > 0);
-
-        await cotacaoRef.update({ produtos: produtosFinais });
+        await cotacaoRef.update({ produtos: produtosAtualizados });
 
         res.status(200).json({ success: true, message: "Subprodutos sem preço retirados com sucesso." });
     } catch (error) {
@@ -703,11 +729,12 @@ cotacaoindividualRouter.post('/cotacaoindividual/retirar-subprodutos', async (re
 /**
  * ETAPA 5: Busca dados para a etapa de faturamento.
  */
-cotacaoindividualRouter.get('/cotacaoindividual/dados-faturamento', async (req, res) => {
+cotacaoindividualRouter.get('/dados-faturamento', async (req, res) => {
     logger.info("API: Buscando dados para etapa de faturamento.");
     const db = admin.firestore();
+
     try {
-        // Busca empresas da coleção 'cadastros'
+        // Busca empresas (cadastros)
         const empresasSnap = await db.collection('cadastros').get();
         const empresas = empresasSnap.docs.map(doc => doc.data().Empresas).filter(Boolean);
 
@@ -732,9 +759,9 @@ cotacaoindividualRouter.get('/cotacaoindividual/dados-faturamento', async (req, 
 /**
  * ETAPA 5: Salva as empresas faturadas em lote para uma cotação.
  */
-cotacaoindividualRouter.post('/cotacaoindividual/salvar-faturamento', async (req, res) => {
+cotacaoindividualRouter.post('/salvar-faturamento', async (req, res) => {
     const { idCotacao, alteracoes } = req.body;
-    logger.info(`API: Salvando faturamento para cotação ID '${idCotacao}'.`, { count: alteracoes.length });
+    logger.info(`API: Salvando faturamento em lote para cotação ID '${idCotacao}'.`, { alteracoesCount: alteracoes?.length });
 
     if (!idCotacao || !Array.isArray(alteracoes)) {
         return res.status(400).json({ success: false, message: "Dados inválidos." });
@@ -750,27 +777,26 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-faturamento', async (req
         }
 
         const cotacaoData = docSnap.data();
-        const produtosAtuais = cotacaoData.produtos || [];
-
-        const produtosAtualizados = produtosAtuais.map(grupoProduto => {
-            const itensAtualizados = grupoProduto.itens.map(item => {
-                const alteracaoCorrespondente = alteracoes.find(alt =>
-                    alt.Produto === grupoProduto.Produto &&
-                    alt.SubProdutoChave === (item.SubProduto || item.Subproduto) &&
-                    alt.Fornecedor === item.Fornecedor
+        const produtosAtualizados = (cotacaoData.produtos || []).map(grupo => {
+            const itensAtualizados = (grupo.itens || []).map(item => {
+                const chave = {
+                    Produto: String(grupo.Produto).trim(),
+                    SubProduto: String(item.SubProduto || item.Subproduto).trim(),
+                    Fornecedor: String(item.Fornecedor || '').trim()
+                };
+                const alter = alteracoes.find(a =>
+                    String(a.Produto).trim() === chave.Produto &&
+                    String(a.SubProduto).trim() === chave.SubProduto &&
+                    String(a.Fornecedor).trim() === chave.Fornecedor
                 );
-
-                if (alteracaoCorrespondente) {
-                    return { ...item, "Empresa Faturada": alteracaoCorrespondente["Empresa Faturada"] };
-                }
-                return item;
+                return alter ? { ...item, ['Empresa Faturada']: String(alter['Empresa Faturada'] || '').trim() } : item;
             });
-            return { ...grupoProduto, itens: itensAtualizados };
+            return { ...grupo, itens: itensAtualizados };
         });
 
         await cotacaoRef.update({ produtos: produtosAtualizados });
 
-        res.status(200).json({ success: true, message: "Faturamento salvo com sucesso!" });
+        res.status(200).json({ success: true, message: "Empresas faturadas atualizadas com sucesso." });
     } catch (error) {
         logger.error(`Erro ao salvar faturamento da cotação ID '${idCotacao}':`, error);
         res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
@@ -780,7 +806,7 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-faturamento', async (req
 /**
  * ETAPA 6: Busca dados para a etapa de condições de pagamento.
  */
-cotacaoindividualRouter.get('/cotacaoindividual/dados-condicoes', async (req, res) => {
+cotacaoindividualRouter.get('/dados-condicoes', async (req, res) => {
     logger.info("API: Buscando dados para etapa de condições de pagamento.");
     const db = admin.firestore();
     try {
@@ -794,7 +820,7 @@ cotacaoindividualRouter.get('/cotacaoindividual/dados-condicoes', async (req, re
         });
         res.status(200).json({ success: true, condicoes });
     } catch (error) {
-        logger.error("Erro ao buscar dados de condições:", error);
+        logger.error("Erro ao buscar condições de pagamento:", error);
         res.status(500).json({ success: false, message: `Erro no servidor: ${error.message}` });
     }
 });
@@ -802,7 +828,7 @@ cotacaoindividualRouter.get('/cotacaoindividual/dados-condicoes', async (req, re
 /**
  * ETAPA 6: Salva as condições de pagamento para os itens de uma cotação.
  */
-cotacaoindividualRouter.post('/cotacaoindividual/salvar-condicoes', async (req, res) => {
+cotacaoindividualRouter.post('/salvar-condicoes', async (req, res) => {
     const { idCotacao, dadosPagamento } = req.body;
     logger.info(`API: Salvando condições de pagamento para cotação ID '${idCotacao}'.`, { count: dadosPagamento.length });
 
@@ -820,23 +846,28 @@ cotacaoindividualRouter.post('/cotacaoindividual/salvar-condicoes', async (req, 
         }
 
         const cotacaoData = docSnap.data();
-        const produtosAtuais = cotacaoData.produtos || [];
 
-        const mapaPagamentos = dadosPagamento.reduce((acc, item) => {
-            const chave = `${item.fornecedor}__${item.empresa}`;
-            acc[chave] = item.condicao;
-            return acc;
-        }, {});
+        const produtosAtualizados = (cotacaoData.produtos || []).map(grupo => {
+            const itensAtualizados = (grupo.itens || []).map(item => {
+                const chave = {
+                    Produto: String(grupo.Produto).trim(),
+                    SubProduto: String(item.SubProduto || item.Subproduto).trim(),
+                    Fornecedor: String(item.Fornecedor || '').trim()
+                };
+                const info = dadosPagamento.find(a =>
+                    String(a.Produto).trim() === chave.Produto &&
+                    String(a.SubProduto).trim() === chave.SubProduto &&
+                    String(a.Fornecedor).trim() === chave.Fornecedor
+                );
+                if (!info) return item;
 
-        const produtosAtualizados = produtosAtuais.map(grupoProduto => {
-            const itensAtualizados = grupoProduto.itens.map(item => {
-                const chaveItem = `${item.Fornecedor}__${item['Empresa Faturada']}`;
-                if (mapaPagamentos.hasOwnProperty(chaveItem)) {
-                    return { ...item, "Condição de Pagamento": mapaPagamentos[chaveItem] };
-                }
-                return item;
+                return {
+                    ...item,
+                    ['Condição de Pagamento']: String(info['Condição de Pagamento'] || '').trim(),
+                    ['Empresa Faturada']: String(info['Empresa Faturada'] || item['Empresa Faturada'] || '').trim()
+                };
             });
-            return { ...grupoProduto, itens: itensAtualizados };
+            return { ...grupo, itens: itensAtualizados };
         });
 
         await cotacaoRef.update({ produtos: produtosAtualizados, "Status da Cotação": "Definindo Condições de Pagamento" });
@@ -878,40 +909,41 @@ cotacaoindividualRouter.get('/cotacaoindividual/dados-impressao/:idCotacao', asy
 
         // 3. Processar e agrupar itens
         if (cotacaoData.produtos && Array.isArray(cotacaoData.produtos)) {
-            cotacaoData.produtos.forEach(grupoProduto => {
-                grupoProduto.itens.forEach(item => {
-                    const comprarQtd = cotacaoindividual_parseNumeroPtBr(item.Comprar);
-                    if (comprarQtd > 0 && item['Empresa Faturada']) {
-                        const nomeFornecedor = item.Fornecedor;
-                        const nomeEmpresa = item['Empresa Faturada'];
-                        const chaveUnica = `${nomeFornecedor}__${nomeEmpresa}`;
+            cotacaoData.produtos.forEach(grupo => {
+                (grupo.itens || []).forEach(item => {
+                    const nomeFornecedor = String(item.Fornecedor || '').trim() || 'Fornecedor não informado';
+                    const nomeEmpresa = String(item['Empresa Faturada'] || '').trim() || 'Empresa não definida';
 
-                        if (!pedidosTemporarios[chaveUnica]) {
-                            pedidosTemporarios[chaveUnica] = {
-                                fornecedor: nomeFornecedor,
-                                empresaFaturada: nomeEmpresa,
-                                cnpj: mapaCnpj[nomeEmpresa.trim()] || 'Não informado',
-                                condicaoPagamento: item['Condição de Pagamento'] || 'Não informada',
-                                itens: [],
-                                totalPedido: 0
-                            };
-                        }
+                    const chaveUnica = `${nomeFornecedor}__${nomeEmpresa}`;
 
-                        const itemPedido = {
-                            subProduto: item.SubProduto || item.Subproduto,
-                            un: item.UN,
-                            qtd: comprarQtd,
-                            valorUnit: cotacaoindividual_parseNumeroPtBr(item.Preço),
-                            valorTotal: cotacaoindividual_parseNumeroPtBr(item['Valor Total'])
+                    if (!pedidosTemporarios[chaveUnica]) {
+                        pedidosTemporarios[chaveUnica] = {
+                            fornecedor: nomeFornecedor,
+                            empresaFaturada: nomeEmpresa,
+                            cnpj: mapaCnpj[nomeEmpresa.trim()] || 'Não informado',
+                            condicaoPagamento: item['Condição de Pagamento'] || 'Não informada',
+                            itens: [],
+                            totalPedido: 0
                         };
-                        pedidosTemporarios[chaveUnica].itens.push(itemPedido);
-                        pedidosTemporarios[chaveUnica].totalPedido += itemPedido.valorTotal;
                     }
+
+                    const itemPedido = {
+                        subProduto: item.SubProduto || item.Subproduto,
+                        un: item.UN,
+                        fator: Number(item.Fator) || 0,
+                        preco: Number(item.Preço) || 0,
+                        precoPorFator: Number(item['Preço por Fator']) || 0,
+                        comprar: Number(item.Comprar) || 0,
+                        valorTotal: Number(item['Valor Total']) || 0
+                    };
+
+                    pedidosTemporarios[chaveUnica].itens.push(itemPedido);
+                    pedidosTemporarios[chaveUnica].totalPedido += itemPedido.valorTotal || 0;
                 });
             });
         }
-        
-        // 4. Estruturar o resultado final agrupado por Fornecedor
+
+        // 4. Transformar em array agrupado por fornecedor
         const dadosFinaisAgrupados = {};
         for (const chave in pedidosTemporarios) {
             const pedido = pedidosTemporarios[chave];

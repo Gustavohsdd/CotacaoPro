@@ -29,13 +29,16 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 // --- ROTAS DA API ---
-// Usa os roteadores dos módulos. Todas as rotas definidas em seus respectivos arquivos
-// agora estarão disponíveis sob o prefixo /api
-app.use('/api', fornecedoresRouter);
-app.use('/api', produtosRouter);
-app.use('/api', subProdutosRouter);
-app.use('/api', cotacoesRouter);
-app.use('/api', cotacaoindividualRouter);
+// =================================================================
+// CORREÇÃO APLICADA AQUI
+// Cada roteador agora tem seu próprio prefixo de URL exclusivo.
+// Isso garante que as requisições sejam direcionadas para o módulo correto.
+// =================================================================
+app.use('/api/fornecedores', fornecedoresRouter);
+app.use('/api/produtos', produtosRouter);
+app.use('/api/subprodutos', subProdutosRouter);
+app.use('/api/cotacoes', cotacoesRouter);
+app.use('/api/cotacaoindividual', cotacaoindividualRouter);
 
 
 // Exporta a aplicação Express como uma única Cloud Function chamada "api"

@@ -1002,50 +1002,6 @@
   <div id="FuncoesScript_sidebarOportunidades" class="sidebar-oportunidades">
   </div>
 
-  <div id="CotacaoIndividualScript_modalNegociacaoOverlay" class="modal-overlay">
-    <div class="modal-content custom-scrollbar" role="dialog" aria-modal="true"
-      aria-labelledby="CotacaoIndividualScript_modalNegociacao_titulo">
-      <div class="modal-header">
-        <h3 id="CotacaoIndividualScript_modalNegociacao_titulo" class="modal-title">Negociação</h3>
-        <button id="CotacaoIndividualScript_btnFecharModalNegociacao" class="modal-close-btn"
-          aria-label="Fechar">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="CotacaoIndividualScript_selectSubproduto">Subproduto base (normalmente o menor preço)</label>
-          <select id="CotacaoIndividualScript_selectSubproduto"></select>
-          <div id="CotacaoIndividualScript_infoSubproduto" style="margin-top:6px;color:#6b7280;font-size:0.85rem;">
-          </div>
-        </div>
-
-        <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div>
-            <label for="CotacaoIndividualScript_inputPercentual">Desconto sobre o preço base (%)</label>
-            <input id="CotacaoIndividualScript_inputPercentual" type="number" step="0.01" min="0" value="2">
-          </div>
-          <div>
-            <label for="CotacaoIndividualScript_inputPrecoNovo">Novo preço (automático)</label>
-            <input id="CotacaoIndividualScript_inputPrecoNovo" type="text" readonly>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="CotacaoIndividualScript_textareaMensagem">Mensagem para enviar aos fornecedores</label>
-          <textarea id="CotacaoIndividualScript_textareaMensagem" rows="5"></textarea>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button id="CotacaoIndividualScript_btnCancelarModalNegociacao"
-          class="btn-painel-acao btn-modal-secondary">Cancelar</button>
-        <button id="CotacaoIndividualScript_btnCopiarTextoNegociacao" class="btn-painel-acao btn-modal-primary">Copiar
-          Texto</button>
-      </div>
-    </div>
-  </div>
-
-
   <div id="EtapasScript_modalContagemEstoqueOverlay" class="modal-overlay">
     <div class="modal-content custom-scrollbar" style="max-width: 90vw; width: 1200px;">
       <div class="modal-header">
@@ -1144,1022 +1100,194 @@
   </div>
 
   <script>
-    (function initCotacaoIndividualScript() {
-      //####################################################################################################
-      // MÓDULO: COTACAO INDIVIDUAL (CLIENT-SIDE)
-      //####################################################################################################
+    //####################################################################################################
+    // MÓDULO: COTACAO INDIVIDUAL & ETAPAS (CLIENT-SIDE)
+    // VERSÃO UNIFICADA E CORRIGIDA
+    //####################################################################################################
 
-      //----------------------------------------------------------------------------------------------------
-      // DECLARAÇÕES GLOBAIS
-      //----------------------------------------------------------------------------------------------------
-      const CotacaoIndividualScript_ID_SEARCH_INPUT_TOP = 'CotacaoIndividualScript_searchInput_Top';
-      const CotacaoIndividualScript_ID_COTACAO_EXIBIDO = 'CotacaoIndividualScript_idCotacaoExibido';
-      const CotacaoIndividualScript_ID_DATA_ABERTURA_EXIBIDA = 'CotacaoIndividualScript_dataAberturaExibida';
-      const CotacaoIndividualScript_ID_MENSAGEM_FEEDBACK = 'CotacaoIndividualScript_mensagemFeedback';
-      const CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO = 'CotacaoIndividualScript_tabelaProdutosCotacao';
-      const CotacaoIndividualScript_ID_PAGE_LOADING_OVERLAY = 'CotacaoIndividualScript_pageLoadingOverlay';
+    //----------------------------------------------------------------------------------------------------
+    // DECLARAÇÕES GLOBAIS E CONSTANTES
+    //----------------------------------------------------------------------------------------------------
+    const CotacaoIndividualScript_ID_SEARCH_INPUT_TOP = 'CotacaoIndividualScript_searchInput_Top';
+    const CotacaoIndividualScript_ID_COTACAO_EXIBIDO = 'CotacaoIndividualScript_idCotacaoExibido';
+    const CotacaoIndividualScript_ID_DATA_ABERTURA_EXIBIDA = 'CotacaoIndividualScript_dataAberturaExibida';
+    const CotacaoIndividualScript_ID_MENSAGEM_FEEDBACK = 'CotacaoIndividualScript_mensagemFeedback';
+    const CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO = 'CotacaoIndividualScript_tabelaProdutosCotacao';
+    const CotacaoIndividualScript_ID_PAGE_LOADING_OVERLAY = 'CotacaoIndividualScript_pageLoadingOverlay';
 
-      let CotacaoIndividualScript_cotacaoIdAtual = null;
-      let CotacaoIndividualScript_cabecalhosVisiveis = [];
-      let CotacaoIndividualScript_dadosOriginaisCotacao = [];
-      let CotacaoIndividualScript_modoEtapaAtual = null;
+    let CotacaoIndividualScript_cotacaoIdAtual = null;
+    let CotacaoIndividualScript_cabecalhosVisiveis = [];
+    let CotacaoIndividualScript_dadosOriginaisCotacao = [];
+    let CotacaoIndividualScript_modoEtapaAtual = null;
 
-      const CotacaoIndividualScript_COLUNAS_A_EXIBIR_PADRAO = [
-        "SubProduto", "Fornecedor", "Tamanho", "UN", "Fator",
-        "Preço", "Preço por Fator", "Comprar", "Valor Total"
-      ];
+    const CotacaoIndividualScript_COLUNAS_A_EXIBIR_PADRAO = [
+      "SubProduto", "Fornecedor", "Tamanho", "UN", "Fator",
+      "Preço", "Preço por Fator", "Comprar", "Valor Total"
+    ];
 
-      const EtapasScript_COLUNAS_A_EXIBIR_FATURAMENTO = [
-        "SubProduto", "Preço", "Comprar", "Valor Total", "Empresa Faturada"
-      ];
+    const EtapasScript_COLUNAS_A_EXIBIR_FATURAMENTO = [
+      "SubProduto", "Preço", "Comprar", "Valor Total", "Empresa Faturada"
+    ];
 
-      const CotacaoIndividualScript_MAPA_CORES_COLUNAS = {
-        "SubProduto": "bg-col-amarelo", "Categoria": "bg-col-amarelo", "Fornecedor": "bg-col-amarelo",
-        "Tamanho": "bg-col-laranja", "UN": "bg-col-laranja", "Fator": "bg-col-laranja",
-        "Preço": "bg-col-azul-cot", "Preço por Fator": "bg-col-azul-cot",
-        "Comprar": "bg-col-verde", "Valor Total": "bg-col-verde", "Economia em Cotação": "bg-col-verde",
-        "Empresa Faturada": "bg-col-roxo-leve", "Condição de Pagamento": "bg-col-roxo-leve"
-      };
+    const CotacaoIndividualScript_MAPA_CORES_COLUNAS = {
+      "SubProduto": "bg-col-amarelo", "Categoria": "bg-col-amarelo", "Fornecedor": "bg-col-amarelo",
+      "Tamanho": "bg-col-laranja", "UN": "bg-col-laranja", "Fator": "bg-col-laranja",
+      "Preço": "bg-col-azul-cot", "Preço por Fator": "bg-col-azul-cot",
+      "Comprar": "bg-col-verde", "Valor Total": "bg-col-verde", "Economia em Cotação": "bg-col-verde",
+      "Empresa Faturada": "bg-col-roxo-leve", "Condição de Pagamento": "bg-col-roxo-leve"
+    };
 
-      /**
-       * Função central para fazer chamadas à API do Firebase Functions.
-       */
-      async function cotacaoindividual_callApi(endpoint, method = 'POST', body = null) {
-        try {
-          const options = {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-          };
-          if (body) {
-            options.body = JSON.stringify(body);
-          }
-          const response = await fetch(`/api/${endpoint}`, options);
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(errorData.message || 'Erro de comunicação com o servidor.');
-          }
-          if (response.status === 204) {
-            return { success: true };
-          }
-          return await response.json();
-        } catch (error) {
-          console.error(`Erro na API [${endpoint}]:`, error);
-          return { success: false, message: error.message };
+    // Constantes legadas para compatibilidade com o script de Etapas
+    const CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO_CONTAINER = 'CotacaoIndividualScript_tableContainer';
+    const CotacaoIndividualScript_ID_RETIRAR_PRODUTOS_CONTAINER = 'EtapasScript_retirarProdutosContainer';
+    const CotacaoIndividualScript_ID_GERENCIAR_COTACOES_PORTAL_CONTAINER = 'EtapasScript_gerenciarCotacoesPortalContainer';
+    const CotacaoIndividualScript_ID_MODAL_CONTAGEM_OVERLAY = 'EtapasScript_modalContagemEstoqueOverlay';
+    const CotacaoIndividualScript_ID_MODAL_DEFINIR_EMPRESA_OVERLAY = 'EtapasScript_modalDefinirEmpresaOverlay';
+
+    //----------------------------------------------------------------------------------------------------
+    // FUNÇÃO CENTRAL DE CHAMADA DA API
+    //----------------------------------------------------------------------------------------------------
+
+    async function CotacaoIndividualScript_callApi(endpoint, method = 'POST', body = null) {
+      const apiBasePath = '/api/cotacaoindividual/';
+      const fullUrl = apiBasePath + endpoint;
+      try {
+        const options = {
+          method: method.toUpperCase(),
+          headers: { 'Content-Type': 'application/json' },
+        };
+        if (body && method.toUpperCase() !== 'GET') {
+          options.body = JSON.stringify(body);
         }
+        const response = await fetch(fullUrl, options);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: `Erro ${response.status}: ${response.statusText}` }));
+          throw new Error(errorData.message || `Erro ${response.status}: A requisição falhou.`);
+        }
+        if (response.status === 204) {
+          return { success: true };
+        }
+        return await response.json();
+      } catch (error) {
+        console.error(`Erro na chamada da API para [${fullUrl}]:`, error);
+        return { success: false, message: error.message };
       }
+    }
 
-      //----------------------------------------------------------------------------------------------------
-      // FUNÇÕES UTILITÁRIAS
-      //----------------------------------------------------------------------------------------------------
-      function cotacaoindividual_parseNumeroPtBr(valor) {
-        if (valor === null || valor === undefined) return NaN;
-        if (typeof valor === 'number') return Number(valor);
+    //----------------------------------------------------------------------------------------------------
+    // FUNÇÕES UTILITÁRIAS E DE UI
+    //----------------------------------------------------------------------------------------------------
 
-        const s = String(valor).trim();
-        if (!s) return NaN;
+    function CotacaoIndividualScript_parseNumeroPtBr(valor) {
+      if (valor === null || valor === undefined) return NaN;
+      if (typeof valor === 'number') return Number(valor);
+      const s = String(valor).trim();
+      if (!s) return NaN;
+      const normalizado = s.replace(/\s+/g, '').replace(/\.(?=\d{3}(?:,|$))/g, '').replace(',', '.');
+      const n = Number(normalizado);
+      return Number.isFinite(n) ? n : NaN;
+    }
 
-        // LINHA ADICIONADA: Remove todos os caracteres que não são dígitos, vírgulas ou pontos.
-        // Isso limpa "R$", espaços extras e outros símbolos monetários.
-        const stringLimpa = s.replace(/[^\d,.-]/g, '');
+    function CotacaoIndividualScript_formatarPreco(n) {
+      const v = Number(n || 0);
+      return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
 
-        const normalizado = stringLimpa
-          .replace(/\s+/g, '')                      // Remove espaços (segunda garantia)
-          .replace(/\.(?=\d{3}(?:,|$))/g, '')      // Remove o ponto de milhar
-          .replace(',', '.');                       // Troca a vírgula decimal por ponto
-
-        const n = Number(normalizado);
-        return Number.isFinite(n) ? n : NaN;
-      }
-
-      function cotacaoindividual_formatarPreco(n) {
-        const v = Number(n || 0);
-        return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      }
-
-      function cotacaoindividual_mostrarLoadingOverlay(mostrar = true, mensagem = "Processando...") {
+    function CotacaoIndividualScript_mostrarLoadingOverlay(flag = true, msg = 'Processando...') {
+      try {
         const overlay = document.getElementById(CotacaoIndividualScript_ID_PAGE_LOADING_OVERLAY);
-        if (overlay) {
-          overlay.classList.toggle('hidden', !mostrar);
-          const msgElement = overlay.querySelector('.loading-message-text');
-          if (msgElement) msgElement.textContent = mensagem;
-        }
+        if (!overlay) return;
+        overlay.classList.toggle('hidden', !flag);
+        const txt = overlay.querySelector('.loading-message-text');
+        if (txt && typeof msg === 'string') txt.textContent = msg;
+      } catch (e) {
+        console.error('CotacaoIndividualScript_mostrarLoadingOverlay erro:', e);
       }
+    }
+    window.CotacaoIndividualScript_mostrarLoadingOverlay = CotacaoIndividualScript_mostrarLoadingOverlay;
 
-      function cotacaoindividual_exibirFeedback(mensagem, isError = false, duracao = 5000) {
-        const feedbackDiv = document.getElementById(CotacaoIndividualScript_ID_MENSAGEM_FEEDBACK);
-        if (feedbackDiv) {
-          feedbackDiv.textContent = mensagem;
-          feedbackDiv.className = `feedback-message ${isError ? 'feedback-error' : 'feedback-success'}`;
-          feedbackDiv.classList.remove('hidden');
-          if (duracao > 0) {
-            setTimeout(() => {
-              if (feedbackDiv.textContent === mensagem) {
-                feedbackDiv.classList.add('hidden');
-                feedbackDiv.textContent = '';
-              }
-            }, duracao);
-          }
-        }
-      }
-
-      function cotacaoindividual_transformarCelulaEmInput(event) {
-        const td = event.currentTarget;
-        if (td.querySelector('input')) return;
-        const valorOriginal = td.dataset.valorOriginal || '';
-        const coluna = td.dataset.coluna;
-        const tipoInput = ["Fator", "Preço", "Comprar"].includes(coluna) ? 'number' : 'text';
-        td.innerHTML = `<input type="${tipoInput}" step="any" class="inline-edit-input" value="${valorOriginal.replace(/\./g, '').replace(',', '.')}" style="width: 95%; box-sizing: border-box; font-size: inherit; font-family: inherit; border: 1px solid #1D4ED8; border-radius: 3px;" />`;
-        const input = td.querySelector('input');
-        input.focus();
-        input.select();
-
-        const salvar = () => cotacaoindividual_salvarEdicaoInline(input);
-
-        input.addEventListener('blur', salvar);
-
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') {
-            input.removeEventListener('blur', salvar);
-            const tdCell = input.parentElement;
-            tdCell.textContent = tdCell.dataset.valorOriginal || '';
-          } else if (e.key === 'Enter') {
-            e.preventDefault(); // Impede o comportamento padrão do Enter
-
-            const isComprarColumn = td.dataset.coluna === 'Comprar';
-
-            // Aciona o salvamento da célula atual ao remover o foco
-            input.blur();
-
-            // Se a coluna for "Comprar", navega para a próxima
-            if (isComprarColumn) {
-              // Adiciona um pequeno atraso para garantir que o evento 'blur' e o salvamento sejam processados
-              setTimeout(() => {
-                const currentRow = td.closest('tr');
-                const tbody = currentRow.closest('tbody');
-
-                // Pega todas as linhas de subproduto que estão visíveis na tela
-                const allVisibleRows = Array.from(
-                  tbody.querySelectorAll('tr.sub-produto-row')
-                ).filter(row => row.offsetParent !== null); // 'offsetParent' é uma forma segura de verificar a visibilidade
-
-                const currentIndex = allVisibleRows.findIndex(row => row === currentRow);
-
-                // Verifica se existe uma próxima linha
-                if (currentIndex !== -1 && currentIndex < allVisibleRows.length - 1) {
-                  const nextRow = allVisibleRows[currentIndex + 1];
-                  const nextComprarCell = nextRow.querySelector('td[data-coluna="Comprar"]');
-
-                  if (nextComprarCell) {
-                    // Clica na próxima célula para ativar o modo de edição
-                    nextComprarCell.click();
-                  }
-                }
-              }, 50); // 50ms de atraso
+    function CotacaoIndividualScript_exibirFeedback(msg, isError = false, ms = 5000) {
+      try {
+        const div = document.getElementById(CotacaoIndividualScript_ID_MENSAGEM_FEEDBACK);
+        if (!div) return;
+        div.textContent = String(msg || '');
+        div.className = `feedback-message ${isError ? 'feedback-error' : 'feedback-success'}`;
+        div.classList.remove('hidden');
+        if (ms > 0) {
+          setTimeout(() => {
+            if (div.textContent === String(msg || '')) {
+              div.classList.add('hidden');
+              div.textContent = '';
             }
-          }
-        });
-      }
-
-      function cotacaoindividual_transformarCelulaEmInput(event) {
-        const td = event.currentTarget;
-        if (td.querySelector('input')) return;
-        const valorOriginal = td.dataset.valorOriginal || '';
-        const coluna = td.dataset.coluna;
-        const tipoInput = ["Fator", "Preço", "Comprar"].includes(coluna) ? 'number' : 'text';
-        td.innerHTML = `<input type="${tipoInput}" step="any" class="inline-edit-input" value="${valorOriginal.replace(/\./g, '').replace(',', '.')}" style="width: 95%; box-sizing: border-box; font-size: inherit; font-family: inherit; border: 1px solid #1D4ED8; border-radius: 3px;" />`;
-        const input = td.querySelector('input');
-        input.focus();
-        input.select();
-
-        const salvar = () => cotacaoindividual_salvarEdicaoInline(input);
-
-        input.addEventListener('blur', salvar);
-
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') {
-            input.removeEventListener('blur', salvar);
-            const tdCell = input.parentElement;
-            tdCell.textContent = tdCell.dataset.valorOriginal || '';
-          } else if (e.key === 'Enter') {
-            e.preventDefault(); // Impede o comportamento padrão do Enter
-
-            const isComprarColumn = td.dataset.coluna === 'Comprar';
-
-            // Aciona o salvamento da célula atual ao remover o foco
-            input.blur();
-
-            // Se a coluna for "Comprar", navega para a próxima
-            if (isComprarColumn) {
-              // Adiciona um pequeno atraso para garantir que o evento 'blur' e o salvamento sejam processados
-              setTimeout(() => {
-                const currentRow = td.closest('tr');
-                const tbody = currentRow.closest('tbody');
-
-                // Pega todas as linhas de subproduto que estão visíveis na tela
-                const allVisibleRows = Array.from(
-                  tbody.querySelectorAll('tr.sub-produto-row')
-                ).filter(row => row.offsetParent !== null); // 'offsetParent' é uma forma segura de verificar a visibilidade
-
-                const currentIndex = allVisibleRows.findIndex(row => row === currentRow);
-
-                // Verifica se existe uma próxima linha
-                if (currentIndex !== -1 && currentIndex < allVisibleRows.length - 1) {
-                  const nextRow = allVisibleRows[currentIndex + 1];
-                  const nextComprarCell = nextRow.querySelector('td[data-coluna="Comprar"]');
-
-                  if (nextComprarCell) {
-                    // Clica na próxima célula para ativar o modo de edição
-                    nextComprarCell.click();
-                  }
-                }
-              }, 50); // 50ms de atraso
-            }
-          }
-        });
-      }
-
-
-      // ########## COLE A NOVA FUNÇÃO AQUI ##########
-      /**
-       * Vincula os eventos de clique para todos os menus dropdown da página.
-       * Também fecha os menus se o usuário clicar fora deles.
-       */
-      function cotacaoindividual_vincularDropdowns() {
-        const dropdownButtons = document.querySelectorAll('.dropdown-menu-button');
-
-        dropdownButtons.forEach(button => {
-          button.addEventListener('click', function (event) {
-            event.stopPropagation();
-            const content = this.nextElementSibling;
-            const isShown = content.classList.contains('show');
-
-            // Fecha todos os outros dropdowns abertos
-            document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
-              if (openContent !== content) {
-                openContent.classList.remove('show');
-                openContent.previousElementSibling.classList.remove('open');
-              }
-            });
-
-            // Alterna o estado do dropdown atual
-            content.classList.toggle('show', !isShown);
-            this.classList.toggle('open', !isShown);
-          });
-        });
-
-        // Fecha os dropdowns se clicar em qualquer outro lugar da página
-        window.addEventListener('click', function (event) {
-          if (!event.target.matches('.dropdown-menu-button')) {
-            document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
-              openContent.classList.remove('show');
-              openContent.previousElementSibling.classList.remove('open');
-            });
-          }
-        });
-      }
-
-
-      //----------------------------------------------------------------------------------------------------
-      // LÓGICA DE EDIÇÃO INLINE, CÁLCULOS E RENDERIZAÇÃO
-      //----------------------------------------------------------------------------------------------------
-
-      async function cotacaoindividual_salvarEdicaoInline(element) {
-        const td = element.parentElement;
-        let novoValorStr = element.value;
-        const valorOriginalStr = td.dataset.valorOriginal || '';
-        const coluna = td.dataset.coluna;
-        const camposNumericos = ["Fator", "Preço", "Comprar"];
-
-        if (camposNumericos.includes(coluna)) {
-          novoValorStr = String(novoValorStr).replace(',', '.');
+          }, ms);
         }
-
-        const valorOriginalComparacao = String(valorOriginalStr).replace(/\./g, '').replace(',', '.');
-
-        // Atualiza a UI imediatamente para o usuário
-        let valorDisplay = novoValorStr;
-        const num = cotacaoindividual_parseNumeroPtBr(novoValorStr);
-        if (camposNumericos.includes(coluna) && !isNaN(num)) {
-          const fractionDigits = { 'Preço': 2, 'Comprar': 2, 'Fator': 4 };
-          valorDisplay = num.toLocaleString('pt-BR', {
-            minimumFractionDigits: fractionDigits[coluna] || 2,
-            maximumFractionDigits: fractionDigits[coluna] || 4,
-          });
-        }
-        td.textContent = valorDisplay;
-        td.dataset.valorOriginal = valorDisplay;
-
-        // Dispara o recálculo local
-        if (["Fator", "Preço", "Comprar"].includes(coluna)) {
-          cotacaoindividual_atualizarGrupoDeCalculosCliente(td.closest('tr'));
-        }
-
-        // Se o valor não mudou, não faz a chamada de API
-        if (novoValorStr === valorOriginalComparacao) {
-          return;
-        }
-
-        const tr = td.closest('tr');
-        const identificadores = {
-          Produto: tr.dataset.produto,
-          SubProdutoChave: tr.dataset.subprodutoOriginalPersistido,
-          Fornecedor: tr.dataset.fornecedor
-        };
-
-        const response = await cotacaoindividual_callApi('cotacaoindividual/salvar-celula', 'POST', {
-          idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
-          identificadoresLinha: identificadores,
-          colunaAlterada: coluna,
-          novoValor: novoValorStr
-        });
-
-        if (response && response.success) {
-          console.log(`Salvo no servidor: ${coluna} = ${novoValorStr}`);
-          // Se o nome do SubProduto mudou, atualiza o dataset para futuras edições
-          if (response.novoSubProdutoNomeSeAlterado) {
-            tr.dataset.subprodutoOriginalPersistido = response.novoSubProdutoNomeSeAlterado;
-          }
-        } else {
-          cotacaoindividual_exibirFeedback(response.message || 'Falha ao salvar.', true);
-          td.textContent = valorOriginalStr; // Reverte para o valor original em caso de erro
-          td.dataset.valorOriginal = valorOriginalStr;
-          cotacaoindividual_atualizarGrupoDeCalculosCliente(tr); // Recalcula com o valor revertido
-        }
+      } catch (e) {
+        console.error('CotacaoIndividualScript_exibirFeedback erro:', e);
       }
-
-      function cotacaoindividual_atualizarGrupoDeCalculosCliente(trEditadaOuHeader) {
-        const isHeader = trEditadaOuHeader.classList.contains('produto-group-separator-row');
-        const nomeProdutoPrincipal = isHeader ? trEditadaOuHeader.dataset.produtoNome : trEditadaOuHeader.dataset.produto;
-
-        if (!nomeProdutoPrincipal) return;
-
-        const tbody = trEditadaOuHeader.closest('tbody');
-        const todasLinhasDoGrupo = tbody.querySelectorAll(`tr.sub-produto-row[data-produto="${nomeProdutoPrincipal}"]`);
-        const headerRow = tbody.querySelector(`tr.produto-group-separator-row[data-produto-nome="${nomeProdutoPrincipal}"]`);
-
-        if (!headerRow) return;
-
-        const lerValorDaLinha = (tr, coluna) => {
-          const cell = tr.querySelector(`td[data-coluna="${coluna}"]`);
-          const valorTexto = cell ? (cell.querySelector('input')?.value || cell.dataset.valorOriginal || cell.textContent || '0') : '0';
-          return cotacaoindividual_parseNumeroPtBr(valorTexto);
-        };
-
-        const escreverValorNaLinha = (tr, coluna, valor, casasDecimais = 2) => {
-          const cell = tr.querySelector(`td[data-coluna="${coluna}"]`);
-          if (cell) {
-            const valorFormatado = valor.toLocaleString('pt-BR', {
-              minimumFractionDigits: casasDecimais,
-              maximumFractionDigits: casasDecimais
-            });
-            cell.textContent = valorFormatado;
-            cell.dataset.valorOriginal = valorFormatado;
-          }
-        };
-
-        let totalComprar = 0;
-        todasLinhasDoGrupo.forEach(tr => {
-          const preco = lerValorDaLinha(tr, "Preço");
-          const fator = lerValorDaLinha(tr, "Fator");
-          const comprar = lerValorDaLinha(tr, "Comprar");
-          totalComprar += comprar;
-
-          const precoPorFator = fator > 0 ? (preco / fator) : 0;
-          escreverValorNaLinha(tr, "Preço por Fator", precoPorFator, 4);
-
-          const valorTotal = preco * comprar;
-          escreverValorNaLinha(tr, "Valor Total", valorTotal, 2);
-        });
-
-        // Atualizar o cabeçalho
-        const grupoOriginal = CotacaoIndividualScript_dadosOriginaisCotacao.find(g => g.Produto === nomeProdutoPrincipal);
-        if (grupoOriginal) {
-          const estoqueAtual = grupoOriginal.estoqueAtualProdutoPrincipal || 0;
-          const saldoEstoque = estoqueAtual - totalComprar;
-
-          const saldoSpan = headerRow.querySelector('[data-role="saldo-estoque"]');
-          if (saldoSpan) {
-            saldoSpan.textContent = `${estoqueAtual.toFixed(2)} / ${totalComprar.toFixed(2)}`;
-            saldoSpan.classList.toggle('negativo', saldoEstoque < 0);
-          }
-        }
-
-        // Recalcular e atualizar métricas de negociação no cabeçalho
-        const precosPorFator = Array.from(todasLinhasDoGrupo).map(tr => lerValorDaLinha(tr, 'Preço por Fator')).filter(p => p > 0).sort((a, b) => a - b);
-        const demandaMedia = grupoOriginal ? (cotacaoindividual_parseNumeroPtBr(grupoOriginal.demandaMediaProdutoPrincipal) || 0) : 0;
-
-        let oportunidadeReais = 0;
-        let spreadPercent = 0;
-
-        if (precosPorFator.length >= 2) {
-          const p1 = precosPorFator[0];
-          const p2 = precosPorFator[1];
-          const mid = Math.floor(precosPorFator.length / 2);
-          const pMediana = precosPorFator.length % 2 === 0 ? (precosPorFator[mid - 1] + precosPorFator[mid]) / 2 : precosPorFator[mid];
-
-          if (demandaMedia > 0 && pMediana > p1) {
-            oportunidadeReais = (pMediana - p1) * demandaMedia;
-          }
-          spreadPercent = ((p2 - p1) / p1) * 100;
-        }
-
-        const metricasSpan = headerRow.querySelector('[data-role="metricas-negociacao"]');
-        if (metricasSpan) {
-          const oportunidadeFormatada = cotacaoindividual_formatarPreco(oportunidadeReais);
-          const spreadFormatado = spreadPercent.toFixed(2) + '%';
-          metricasSpan.textContent = `Oportunidade: ${oportunidadeFormatada} | Spread: ${spreadFormatado}`;
-        }
-      }
-
-
-      function cotacaoindividual_renderizarCabecalhoTabela() {
-        const tabela = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO);
-        if (!tabela) return;
-        const thead = tabela.querySelector('thead');
-        thead.innerHTML = '';
-
-        const tr = thead.insertRow();
-        CotacaoIndividualScript_cabecalhosVisiveis.forEach(textoCabecalho => {
-          const th = document.createElement('th');
-          th.textContent = textoCabecalho;
-          tr.appendChild(th);
-        });
-      }
-
-      function cotacaoindividual_renderizarGruposDeProdutos(dadosAgrupados) {
-        const tabela = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO);
-        if (!tabela) return;
-        const tbody = tabela.querySelector('tbody');
-        tbody.innerHTML = '';
-
-        if (!dadosAgrupados || dadosAgrupados.length === 0) {
-          const tr = tbody.insertRow();
-          const td = tr.insertCell();
-          td.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length || 1;
-          td.className = 'text-center p-8 text-gray-500';
-          td.textContent = 'Nenhum produto para esta cotação.';
-          return;
-        }
-
-        const agrupadoPorCategoria = dadosAgrupados.reduce((acc, produto) => {
-          const categoria = (produto.itens && produto.itens[0]?.Categoria) ? produto.itens[0].Categoria : 'Sem Categoria';
-          if (!acc[categoria]) {
-            acc[categoria] = [];
-          }
-          acc[categoria].push(produto);
-          return acc;
-        }, {});
-
-        const categoriasOrdenadas = Object.keys(agrupadoPorCategoria).sort();
-
-        categoriasOrdenadas.forEach(nomeCategoria => {
-          const categoriaRow = tbody.insertRow();
-          categoriaRow.className = 'categoria-accordion-header-row expanded';
-          const categoriaCell = categoriaRow.insertCell();
-          categoriaCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
-          categoriaCell.innerHTML = `
-                    <div class="categoria-header-content">
-                        <svg class="categoria-accordion-icon" style="transform: rotate(90deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                        <span>${nomeCategoria}</span>
-                    </div>
-                `;
-
-          const contentRows = [];
-
-          agrupadoPorCategoria[nomeCategoria].forEach(grupoProduto => {
-            const produtoRow = tbody.insertRow();
-            produtoRow.className = 'produto-group-separator-row';
-            produtoRow.dataset.produtoNome = grupoProduto.Produto; // Adiciona para referência
-            const produtoCell = produtoRow.insertCell();
-            produtoCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
-
-            const wrap = document.createElement('div');
-            wrap.className = 'contagem-container-principal';
-
-            const info = document.createElement('div');
-            info.className = 'produto-principal-info';
-            info.textContent = grupoProduto.Produto;
-
-            const actions = document.createElement('div');
-            actions.className = 'contagem-fields-container';
-
-            const estMinimo = grupoProduto.estoqueMinimoProdutoPrincipal !== null ? parseFloat(grupoProduto.estoqueMinimoProdutoPrincipal).toFixed(2) : 'N/A';
-            const demandaMedia = grupoProduto.demandaMediaProdutoPrincipal !== null ? parseFloat(grupoProduto.demandaMediaProdutoPrincipal).toFixed(2) : 'N/A';
-
-            let totalComprar = 0;
-            grupoProduto.itens.forEach(item => {
-              const comprarValor = cotacaoindividual_parseNumeroPtBr(item.Comprar);
-              if (!isNaN(comprarValor)) {
-                totalComprar += comprarValor;
-              }
-            });
-
-            const estoqueAtual = grupoProduto.estoqueAtualProdutoPrincipal !== null ? parseFloat(grupoProduto.estoqueAtualProdutoPrincipal) : 0;
-            const saldoEstoque = estoqueAtual - totalComprar;
-
-            actions.innerHTML = `
-                <div class="contagem-field-block">
-                    <span class="campo-contagem-label">Est. Mínimo:</span>
-                    <span class="campo-contagem-valor">${estMinimo}</span>
-                </div>
-                <div class="contagem-field-block">
-                    <span class="campo-contagem-label">Demanda Média:</span>
-                    <span class="campo-contagem-valor">${demandaMedia}</span>
-                </div>
-                <div class="contagem-field-block">
-                    <span class="campo-contagem-label">Est. Atual / Comprar:</span>
-                    <span class="campo-contagem-valor ${saldoEstoque < 0 ? 'negativo' : ''}" data-role="saldo-estoque">${estoqueAtual.toFixed(2)} / ${totalComprar.toFixed(2)}</span>
-                </div>
-            `;
-
-            const btnNeg = document.createElement('button');
-            btnNeg.className = 'info-badge clickable negociacao-btn';
-            btnNeg.dataset.produtoNome = grupoProduto.Produto;
-            btnNeg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 5h2v8h-2V8zm-4 0h2v8H9V8z"/></svg><span>Negociação</span>`;
-            actions.appendChild(btnNeg);
-
-            // Lógica para Oportunidade e Spread (cálculo inicial)
-            // Esta parte será movida para uma função de cálculo para ser reutilizável
-            const metricasSpan = document.createElement('span');
-            metricasSpan.className = 'info-badge indicador-oportunidade';
-            metricasSpan.dataset.role = 'metricas-negociacao';
-            metricasSpan.textContent = 'Calculando...'; // Placeholder
-            actions.appendChild(metricasSpan);
-
-            wrap.appendChild(info);
-            wrap.appendChild(actions);
-            produtoCell.appendChild(wrap);
-            contentRows.push(produtoRow);
-
-            if (grupoProduto.itens && Array.isArray(grupoProduto.itens)) {
-              grupoProduto.itens.forEach(item => {
-                const subProdutoRow = tbody.insertRow();
-                subProdutoRow.className = 'sub-produto-row';
-                subProdutoRow.dataset.produto = item.Produto;
-                subProdutoRow.dataset.fornecedor = item.Fornecedor;
-                subProdutoRow.dataset.subprodutoOriginalPersistido = item._subProdutoOriginalPersistido;
-
-                CotacaoIndividualScript_cabecalhosVisiveis.forEach(cabecalho => {
-                  const td = subProdutoRow.insertCell();
-                  let valor = item[cabecalho];
-                  if (valor === undefined || valor === null) valor = '';
-
-                  if (['Preço', 'Preço por Fator', 'Valor Total'].includes(cabecalho)) {
-                    td.textContent = cotacaoindividual_formatarPreco(valor);
-                  } else if (['Fator', 'Comprar'].includes(cabecalho)) {
-                    const num = cotacaoindividual_parseNumeroPtBr(valor);
-                    td.textContent = !isNaN(num) ? num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '';
-                  } else {
-                    td.textContent = valor;
-                  }
-
-                  td.dataset.coluna = cabecalho;
-                  td.dataset.valorOriginal = td.textContent;
-
-                  const colunasEditaveis = ["SubProduto", "Tamanho", "UN", "Fator", "Preço", "Comprar"];
-                  if (colunasEditaveis.includes(cabecalho)) {
-                    td.classList.add('editable-price-cell');
-                    td.addEventListener('click', cotacaoindividual_transformarCelulaEmInput);
-                  }
-
-                  if (CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]) {
-                    td.classList.add(CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]);
-                  }
-                });
-                contentRows.push(subProdutoRow);
-              });
-            }
-            // Após renderizar os itens, atualizamos os cálculos do cabeçalho
-            cotacaoindividual_atualizarGrupoDeCalculosCliente(produtoRow);
-          });
-
-          categoriaRow.addEventListener('click', () => {
-            const isExpanded = categoriaRow.classList.toggle('expanded');
-            const icon = categoriaRow.querySelector('.categoria-accordion-icon');
-            if (icon) {
-              icon.style.transform = isExpanded ? 'rotate(90deg)' : 'rotate(0deg)';
-            }
-            contentRows.forEach(row => {
-              row.classList.toggle('hidden-by-category', !isExpanded);
-            });
-          });
-        });
-
-        document.querySelectorAll('.negociacao-btn').forEach(button => {
-          button.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const produtoNome = event.currentTarget.dataset.produtoNome;
-            cotacaoindividual_abrirModalNegociacao(produtoNome);
-          });
-        });
-      }
-
-      async function cotacaoindividual_carregarDadosCotacao(idCotacao) {
-        cotacaoindividual_mostrarLoadingOverlay(true, 'Carregando dados da cotação...');
-
-        const resposta = await cotacaoindividual_callApi('cotacaoindividual/detalhes', 'POST', { idCotacao });
-
-        cotacaoindividual_mostrarLoadingOverlay(false);
-
-        if (resposta && resposta.success) {
-          CotacaoIndividualScript_dadosOriginaisCotacao = resposta.dados || [];
-          CotacaoIndividualScript_cabecalhosVisiveis = resposta.cabecalhos || CotacaoIndividualScript_COLUNAS_A_EXIBIR_PADRAO;
-
-          cotacaoindividual_renderizarCabecalhoTabela();
-          cotacaoindividual_renderizarGruposDeProdutos(CotacaoIndividualScript_dadosOriginaisCotacao);
-
-          const dataAberturaContainer = document.getElementById(CotacaoIndividualScript_ID_DATA_ABERTURA_EXIBIDA);
-          if (dataAberturaContainer && resposta.dataAbertura) {
-            const dataObj = new Date(resposta.dataAbertura);
-            dataAberturaContainer.textContent = `Data de Abertura: ${dataObj.toLocaleDateString('pt-BR')}`;
-          }
-        } else {
-          const msgErro = resposta.message || "Falha ao carregar dados da cotação.";
-          cotacaoindividual_exibirFeedback(msgErro, true);
-          const tbody = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO)?.querySelector('tbody');
-          if (tbody) tbody.innerHTML = `<tr><td colspan="${CotacaoIndividualScript_cabecalhosVisiveis.length || 1}" class="text-center p-8 text-red-500">${msgErro}</td></tr>`;
-        }
-      }
-
-      function cotacaoindividual_obterSubprodutosDoProduto(produtoNome) {
-        const listaSubprodutos = [];
-        CotacaoIndividualScript_dadosOriginaisCotacao.forEach(grupoProduto => {
-          if (grupoProduto.Produto === produtoNome && grupoProduto.itens) {
-            grupoProduto.itens.forEach(item => {
-              listaSubprodutos.push({
-                fornecedor: item.Fornecedor,
-                subproduto: item.SubProduto || item.Subproduto,
-                preco: cotacaoindividual_parseNumeroPtBr(item.Preço)
-              });
-            });
-          }
-        });
-        listaSubprodutos.sort((a, b) => (a.preco || Infinity) - (b.preco || Infinity));
-        return listaSubprodutos;
-      }
-
-      function cotacaoindividual_gerarMensagemNegociacao(nomeProduto, novoPrecoNumero) {
-        const precoFmt = cotacaoindividual_formatarPreco(novoPrecoNumero);
-        return `Olá, tudo bem?\n\nEstou cotando o produto: ${nomeProduto}.\n\nConsegui um preço melhor de ${precoFmt}. Você consegue cobrir essa oferta?\n\nFico no aguardo, obrigado!`;
-      }
-
-      function cotacaoindividual_aplicarDesconto(precoBase, percentual) {
-        const p = Number(precoBase) || 0;
-        const d = Number(percentual) || 0;
-        return Math.max(0, p * (1 - d / 100));
-      }
-
-      function cotacaoindividual_abrirModalNegociacao(produto) {
-        const subprodutos = cotacaoindividual_obterSubprodutosDoProduto(produto);
-
-        const modal = document.getElementById('CotacaoIndividualScript_modalNegociacaoOverlay');
-        const tituloModal = document.getElementById('CotacaoIndividualScript_modalNegociacao_titulo');
-        const select = document.getElementById('CotacaoIndividualScript_selectSubproduto');
-        const info = document.getElementById('CotacaoIndividualScript_infoSubproduto');
-        const inpPerc = document.getElementById('CotacaoIndividualScript_inputPercentual');
-        const inpNovo = document.getElementById('CotacaoIndividualScript_inputPrecoNovo');
-        const txt = document.getElementById('CotacaoIndividualScript_textareaMensagem');
-        const btnCopiar = document.getElementById('CotacaoIndividualScript_btnCopiarTextoNegociacao');
-        const btnFechar = document.getElementById('CotacaoIndividualScript_btnFecharModalNegociacao');
-        const btnCancelar = document.getElementById('CotacaoIndividualScript_btnCancelarModalNegociacao');
-
-        if (!modal) return;
-
-        tituloModal.textContent = `Negociação: ${produto}`;
-        select.innerHTML = '';
-        subprodutos.forEach((sp, idx) => {
-          const opt = document.createElement('option');
-          const precoFmt = sp.preco === null || isNaN(sp.preco) ? '—' : cotacaoindividual_formatarPreco(sp.preco);
-          opt.value = String(idx);
-          opt.textContent = `${sp.subproduto} — ${sp.fornecedor} — ${precoFmt}`;
-          select.appendChild(opt);
-        });
-        if (subprodutos.length > 0) select.value = '0';
-
-        const atualizar = () => {
-          const sp = subprodutos[Number(select.value)];
-          if (!sp) return;
-          info.textContent = `Base: ${sp.subproduto} — ${sp.fornecedor} — ${cotacaoindividual_formatarPreco(sp.preco)}`;
-          const perc = Number(inpPerc.value || 0);
-          const novo = cotacaoindividual_aplicarDesconto(sp.preco, perc);
-          inpNovo.value = cotacaoindividual_formatarPreco(novo);
-          txt.value = cotacaoindividual_gerarMensagemNegociacao(produto, novo);
-        };
-
-        select.onchange = atualizar;
-        inpPerc.oninput = atualizar;
-
-        const fechar = () => {
-          modal.classList.remove('active');
-          select.onchange = null;
-          inpPerc.oninput = null;
-        };
-
-        btnCopiar.onclick = () => {
-          txt.select();
-          navigator.clipboard.writeText(txt.value).then(() => {
-            cotacaoindividual_exibirFeedback('Mensagem copiada!', false, 2000);
-          });
-        };
-
-        btnFechar.onclick = fechar;
-        btnCancelar.onclick = fechar;
-        modal.addEventListener('click', (e) => {
-          if (e.target === modal) fechar();
-        });
-
-        atualizar();
-        modal.classList.add('active');
-      }
-
-      //----------------------------------------------------------------------------------------------------
-      // INICIALIZAÇÃO
-      //----------------------------------------------------------------------------------------------------
-
-      function cotacaoindividual_obterParametros() {
-        const params = new URLSearchParams(window.location.search);
-        const idCotacao = params.get('idCotacao');
-        return { idCotacao };
-      }
-
-      async function inicializarPagina() {
-        console.log("CotacaoIndividualScript: Iniciando para Firebase...");
-
-        cotacaoindividual_vincularDropdowns();
-        CotacaoIndividualScript_vincularAcoesMenuEtapas();
-
-        const params = cotacaoindividual_obterParametros();
-        CotacaoIndividualScript_cotacaoIdAtual = params.idCotacao;
-
-        const spanIdCotacao = document.getElementById(CotacaoIndividualScript_ID_COTACAO_EXIBIDO);
-
-        if (CotacaoIndividualScript_cotacaoIdAtual) {
-          if (spanIdCotacao) spanIdCotacao.textContent = CotacaoIndividualScript_cotacaoIdAtual;
-          document.title = `Cotação: ${CotacaoIndividualScript_cotacaoIdAtual}`;
-          await cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
-        } else {
-          if (spanIdCotacao) spanIdCotacao.textContent = "Inválida";
-          document.title = "Cotação Inválida - CotaçãoPRO";
-          cotacaoindividual_exibirFeedback("ID da Cotação não fornecido.", true, 0);
-          const tbody = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO)?.querySelector('tbody');
-          if (tbody) tbody.innerHTML = `<tr><td colspan="1" class="text-center p-8 text-red-500">ID da Cotação não fornecido na URL.</td></tr>`;
-        }
-      }
-
-      document.addEventListener('DOMContentLoaded', inicializarPagina);
-
-    })();
-
-    function CotacaoIndividualScript_calcularMetricasNegociacao(grupo) {
-      const resultado = {
-        oportunidadeReais: 0,
-        spreadPercent: 0,
+    }
+    window.CotacaoIndividualScript_exibirFeedback = CotacaoIndividualScript_exibirFeedback;
+
+    function CotacaoIndividualScript_parsearStringEstoqueComprar(txt) {
+      const limparNumero = (s) => {
+        if (s === null || s === undefined) return 0;
+        const limpo = String(s).replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(?:,|$))/g, '').replace(',', '.');
+        const n = Number(limpo);
+        return Number.isFinite(n) ? n : 0;
       };
-
-      if (!grupo || !grupo.itens || grupo.itens.length < 2) {
-        return resultado;
+      const str = String(txt || '');
+      const reDuplo = /Estoque\s*Atual[^0-9\-]*([0-9\.,-]+).*?Comprar[^0-9\-]*([0-9\.,-]+)/i;
+      const m = str.match(reDuplo);
+      if (m) {
+        return { estoqueAtual: limparNumero(m[1]), comprar: limparNumero(m[2]) };
       }
-
-      // 1. Calcular todos os preços por fator válidos e ordená-los
-      const precosPorFatorValidos = grupo.itens
-        .map(item => {
-          const preco = cotacaoindividual_parseNumeroPtBr(item["Preço"]);
-          const fator = cotacaoindividual_parseNumeroPtBr(item["Fator"]);
-          if (!isNaN(preco) && !isNaN(fator) && fator > 0) {
-            return preco / fator;
-          }
-          return null;
-        })
-        .filter(p => p !== null && p > 0)
-        .sort((a, b) => a - b);
-
-      if (precosPorFatorValidos.length < 2) {
-        return resultado;
-      }
-
-      // 2. Definir P1, P2 e a Mediana
-      const p1 = precosPorFatorValidos[0];
-      const p2 = precosPorFatorValidos[1];
-
-      const mid = Math.floor(precosPorFatorValidos.length / 2);
-      const pMediana = precosPorFatorValidos.length % 2 === 0
-        ? (precosPorFatorValidos[mid - 1] + precosPorFatorValidos[mid]) / 2
-        : precosPorFatorValidos[mid];
-
-      // 3. Obter a quantidade base (Q) usando a Demanda Média
-      const quantidadeBase = cotacaoindividual_parseNumeroPtBr(grupo.demandaMediaProdutoPrincipal);
-
-      // 4. Calcular Oportunidade (R$)
-      if (!isNaN(quantidadeBase) && quantidadeBase > 0 && pMediana > p1) {
-        resultado.oportunidadeReais = (pMediana - p1) * quantidadeBase;
-      }
-
-      // 5. Calcular Spread (%)
-      if (p1 > 0 && p2) {
-        resultado.spreadPercent = ((p2 - p1) / p1) * 100;
-      }
-
-      return resultado;
+      const nums = (str.match(/[0-9\.,-]+/g) || []).map(limparNumero);
+      return { estoqueAtual: nums[0] || 0, comprar: nums[1] || 0 };
     }
+    window.CotacaoIndividualScript_parsearStringEstoqueComprar = CotacaoIndividualScript_parsearStringEstoqueComprar;
 
-    // AGORA, SUBSTITUA A SUA FUNÇÃO `cotacaoindividual_renderizarGruposDeProdutos` EXISTENTE POR ESTA VERSÃO
-    function cotacaoindividual_renderizarGruposDeProdutos(dadosAgrupados) {
-      const tabela = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO);
-      if (!tabela) return;
-      const tbody = tabela.querySelector('tbody');
-      tbody.innerHTML = '';
+    function CotacaoIndividualScript_restaurarVisualizacaoPadrao(force = false) {
+      try {
+        const overlays = [
+          CotacaoIndividualScript_ID_MODAL_CONTAGEM_OVERLAY,
+          CotacaoIndividualScript_ID_MODAL_DEFINIR_EMPRESA_OVERLAY,
+          'EtapasScript_modalRetirarProdutosOverlay'
+        ];
+        overlays.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.remove('active');
+        });
 
-      if (!dadosAgrupados || dadosAgrupados.length === 0) {
-        const tr = tbody.insertRow();
-        const td = tr.insertCell();
-        td.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length || 1;
-        td.className = 'text-center p-8 text-gray-500';
-        td.textContent = 'Nenhum produto para esta cotação.';
-        return;
-      }
+        document.getElementById('CotacaoIndividualScript_tableContainer')?.classList.remove('hidden');
+        document.getElementById(CotacaoIndividualScript_ID_RETIRAR_PRODUTOS_CONTAINER)?.classList.add('hidden');
+        document.getElementById(CotacaoIndividualScript_ID_GERENCIAR_COTACOES_PORTAL_CONTAINER)?.classList.add('hidden');
 
-      const agrupadoPorCategoria = dadosAgrupados.reduce((acc, produto) => {
-        const categoria = (produto.itens && produto.itens[0]?.Categoria) ? produto.itens[0].Categoria : 'Sem Categoria';
-        if (!acc[categoria]) {
-          acc[categoria] = [];
+        if (Array.isArray(window.CotacaoIndividualScript_dadosOriginaisCotacao)) {
+          CotacaoIndividualScript_renderizarCabecalhoTabela();
+          CotacaoIndividualScript_renderizarGruposDeProdutos(window.CotacaoIndividualScript_dadosOriginaisCotacao);
         }
-        acc[categoria].push(produto);
-        return acc;
-      }, {});
-
-      const categoriasOrdenadas = Object.keys(agrupadoPorCategoria).sort();
-
-      categoriasOrdenadas.forEach(nomeCategoria => {
-        const categoriaRow = tbody.insertRow();
-        categoriaRow.className = 'categoria-accordion-header-row expanded';
-        const categoriaCell = categoriaRow.insertCell();
-        categoriaCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
-        categoriaCell.innerHTML = `
-                    <div class="categoria-header-content">
-                        <svg class="categoria-accordion-icon" style="transform: rotate(90deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                        <span>${nomeCategoria}</span>
-                    </div>
-                `;
-
-        const contentRows = [];
-
-        agrupadoPorCategoria[nomeCategoria].forEach(grupoProduto => {
-          const produtoRow = tbody.insertRow();
-          produtoRow.className = 'produto-group-separator-row';
-          produtoRow.dataset.produtoNome = grupoProduto.Produto;
-          const produtoCell = produtoRow.insertCell();
-          produtoCell.colSpan = CotacaoIndividualScript_cabecalhosVisiveis.length;
-
-          const wrap = document.createElement('div');
-          wrap.className = 'contagem-container-principal';
-
-          const info = document.createElement('div');
-          info.className = 'produto-principal-info';
-          info.textContent = grupoProduto.Produto;
-
-          const actions = document.createElement('div');
-          actions.className = 'contagem-fields-container';
-
-          const estMinimo = grupoProduto.estoqueMinimoProdutoPrincipal !== null ? parseFloat(grupoProduto.estoqueMinimoProdutoPrincipal).toFixed(2) : 'N/A';
-          const demandaMedia = grupoProduto.demandaMediaProdutoPrincipal !== null ? parseFloat(grupoProduto.demandaMediaProdutoPrincipal).toFixed(2) : 'N/A';
-
-          let totalComprar = 0;
-          if (grupoProduto.itens && Array.isArray(grupoProduto.itens)) {
-            grupoProduto.itens.forEach(item => {
-              const comprarValor = cotacaoindividual_parseNumeroPtBr(item.Comprar);
-              if (!isNaN(comprarValor)) {
-                totalComprar += comprarValor;
-              }
-            });
-          }
-
-          const estoqueAtual = grupoProduto.estoqueAtualProdutoPrincipal !== null ? parseFloat(grupoProduto.estoqueAtualProdutoPrincipal) : 0;
-          const saldoEstoque = estoqueAtual - totalComprar;
-
-          const metricas = CotacaoIndividualScript_calcularMetricasNegociacao(grupoProduto);
-          const oportunidadeFormatada = cotacaoindividual_formatarPreco(metricas.oportunidadeReais);
-          const spreadFormatado = metricas.spreadPercent.toFixed(2) + '%';
-
-          actions.innerHTML = `
-                <div class="contagem-field-block">
-                    <span class="campo-contagem-label">Est. Mínimo:</span>
-                    <span class="campo-contagem-valor">${estMinimo}</span>
-                </div>
-                <div class="contagem-field-block">
-                    <span class="campo-contagem-label">Demanda Média:</span>
-                    <span class="campo-contagem-valor">${demandaMedia}</span>
-                </div>
-                <div class="contagem-field-block">
-                    <span class="campo-contagem-label">Est. Atual / Comprar:</span>
-                    <span class="campo-contagem-valor ${saldoEstoque < 0 ? 'negativo' : ''}" data-role="saldo-estoque">${estoqueAtual.toFixed(2)} / ${totalComprar.toFixed(2)}</span>
-                </div>
-                <span class="info-badge indicador-oportunidade" data-role="metricas-negociacao">Oportunidade: ${oportunidadeFormatada} | Spread: ${spreadFormatado}</span>
-            `;
-
-          const btnNeg = document.createElement('button');
-          btnNeg.className = 'info-badge clickable negociacao-btn';
-          btnNeg.dataset.produtoNome = grupoProduto.Produto;
-          btnNeg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 5h2v8h-2V8zm-4 0h2v8H9V8z"/></svg><span>Negociação</span>`;
-          actions.appendChild(btnNeg);
-
-          wrap.appendChild(info);
-          wrap.appendChild(actions);
-          produtoCell.appendChild(wrap);
-          contentRows.push(produtoRow);
-
-          if (grupoProduto.itens && Array.isArray(grupoProduto.itens)) {
-            grupoProduto.itens.forEach(item => {
-              const subProdutoRow = tbody.insertRow();
-              subProdutoRow.className = 'sub-produto-row';
-              subProdutoRow.dataset.produto = item.Produto;
-              subProdutoRow.dataset.fornecedor = item.Fornecedor;
-              subProdutoRow.dataset.subprodutoOriginalPersistido = item._subProdutoOriginalPersistido;
-
-              CotacaoIndividualScript_cabecalhosVisiveis.forEach(cabecalho => {
-                const td = subProdutoRow.insertCell();
-                let valor = item[cabecalho];
-                if (valor === undefined || valor === null) valor = '';
-
-                if (['Preço', 'Preço por Fator', 'Valor Total'].includes(cabecalho)) {
-                  td.textContent = cotacaoindividual_formatarPreco(valor);
-                } else if (['Fator', 'Comprar'].includes(cabecalho)) {
-                  const num = cotacaoindividual_parseNumeroPtBr(valor);
-                  td.textContent = !isNaN(num) ? num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '';
-                } else {
-                  td.textContent = valor;
-                }
-
-                td.dataset.coluna = cabecalho;
-                td.dataset.valorOriginal = td.textContent;
-
-                const colunasEditaveis = ["SubProduto", "Tamanho", "UN", "Fator", "Preço", "Comprar"];
-                if (colunasEditaveis.includes(cabecalho)) {
-                  td.classList.add('editable-price-cell');
-                  td.addEventListener('click', cotacaoindividual_transformarCelulaEmInput);
-                }
-
-                if (CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]) {
-                  td.classList.add(CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]);
-                }
-              });
-              contentRows.push(subProdutoRow);
-            });
-          }
-        });
-
-        categoriaRow.addEventListener('click', () => {
-          const isExpanded = categoriaRow.classList.toggle('expanded');
-          const icon = categoriaRow.querySelector('.categoria-accordion-icon');
-          if (icon) {
-            icon.style.transform = isExpanded ? 'rotate(90deg)' : 'rotate(0deg)';
-          }
-          contentRows.forEach(row => {
-            row.classList.toggle('hidden-by-category', !isExpanded);
-          });
-        });
-      });
-
-      document.querySelectorAll('.negociacao-btn').forEach(button => {
-        button.addEventListener('click', (event) => {
-          event.stopPropagation();
-          const produtoNome = event.currentTarget.dataset.produtoNome;
-          cotacaoindividual_abrirModalNegociacao(produtoNome);
-        });
-      });
+        CotacaoIndividualScript_exibirFeedback('', false, 1);
+      } catch (e) {
+        console.error('CotacaoIndividualScript_restaurarVisualizacaoPadrao erro:', e);
+      }
     }
+    window.CotacaoIndividualScript_restaurarVisualizacaoPadrao = CotacaoIndividualScript_restaurarVisualizacaoPadrao;
 
-    //####################################################################################################
-    // INÍCIO DO MÓDULO DE ETAPAS (CLIENT-SIDE)
-    //####################################################################################################
-
-    /**
-           * Vincula os eventos de clique para todos os menus dropdown da página.
-           * Também fecha os menus se o usuário clicar fora deles.
-           */
-    function cotacaoindividual_vincularDropdowns() {
-      const dropdownButtons = document.querySelectorAll('.dropdown-menu-button');
-
-      dropdownButtons.forEach(button => {
+    function CotacaoIndividualScript_vincularDropdowns() {
+      document.querySelectorAll('.dropdown-menu-button').forEach(button => {
         button.addEventListener('click', function (event) {
           event.stopPropagation();
           const content = this.nextElementSibling;
           const isShown = content.classList.contains('show');
-
-          // Fecha todos os outros dropdowns abertos
           document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
             if (openContent !== content) {
               openContent.classList.remove('show');
               openContent.previousElementSibling.classList.remove('open');
             }
           });
-
-          // Alterna o estado do dropdown atual
           content.classList.toggle('show', !isShown);
           this.classList.toggle('open', !isShown);
         });
       });
-
-      // Fecha os dropdowns se clicar em qualquer outro lugar da página
       window.addEventListener('click', function (event) {
         if (!event.target.matches('.dropdown-menu-button')) {
           document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
@@ -2170,506 +1298,411 @@
       });
     }
 
+    //----------------------------------------------------------------------------------------------------
+    // LÓGICA DE DADOS E RENDERIZAÇÃO
+    //----------------------------------------------------------------------------------------------------
 
-    /**
-       * Adiciona os listeners para os links do menu de Etapas, direcionando
-       * cada clique para a função de etapa correspondente.
-       */
-    function CotacaoIndividualScript_vincularAcoesMenuEtapas() {
-      const dropdownEtapas = document.getElementById('CotacaoIndividualScript_menuEtapasDropdown');
-      if (!dropdownEtapas) {
-        console.error("Menu de Etapas não encontrado!");
-        return;
+    async function CotacaoIndividualScript_carregarDadosCotacao(idCotacao) {
+      window.CotacaoIndividualScript_cotacaoIdAtual = idCotacao;
+      const loadingCell = document.getElementById('CotacaoIndividualScript_tabelaLoadingMsg');
+      if (loadingCell) loadingCell.parentElement.style.display = 'table-row';
+
+      const resposta = await CotacaoIndividualScript_callApi('detalhes', 'POST', { idCotacao });
+
+      if (loadingCell) loadingCell.parentElement.style.display = 'none';
+
+      if (resposta && resposta.success) {
+        window.CotacaoIndividualScript_dadosOriginaisCotacao = resposta.dados || [];
+        window.CotacaoIndividualScript_cabecalhosVisiveis = resposta.cabecalhos || CotacaoIndividualScript_COLUNAS_A_EXIBIR_PADRAO;
+
+        CotacaoIndividualScript_renderizarCabecalhoTabela();
+        CotacaoIndividualScript_renderizarGruposDeProdutos(window.CotacaoIndividualScript_dadosOriginaisCotacao);
+
+        const dataAberturaContainer = document.getElementById(CotacaoIndividualScript_ID_DATA_ABERTURA_EXIBIDA);
+        if (dataAberturaContainer && resposta.dataAbertura) {
+          const dataObj = new Date(resposta.dataAbertura);
+          if (!isNaN(dataObj)) {
+            dataAberturaContainer.textContent = `Data de Abertura: ${dataObj.toLocaleDateString('pt-BR')}`;
+          }
+        }
+        CotacaoIndividualScript_exibirFeedback('', false, 1);
+      } else {
+        const msgErro = resposta.message || "Falha ao carregar dados da cotação.";
+        CotacaoIndividualScript_exibirFeedback(msgErro, true, 0);
+        const tbody = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO)?.querySelector('tbody');
+        if (tbody) {
+          const colspan = (window.CotacaoIndividualScript_cabecalhosVisiveis || []).length || 1;
+          tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 2rem; color: #991B1B;">${msgErro}</td></tr>`;
+        }
       }
+    }
+    window.CotacaoIndividualScript_carregarDadosCotacao = CotacaoIndividualScript_carregarDadosCotacao;
 
-      dropdownEtapas.addEventListener('click', function (event) {
-        event.preventDefault();
-        const target = event.target;
-        if (target.tagName !== 'A' || !target.dataset.action) {
-          return;
-        }
-
-        const action = target.dataset.action;
-        console.log(`Ação do menu de Etapas acionada: ${action}`);
-
-        // Mapeia a ação do link para a função a ser executada
-        const acoesDasEtapas = {
-          'etapa_contagem_estoque': EtapasScript_ativarModoContagemEstoque,
-          'etapa_retirar_produtos': EtapasScript_ativarModoRetirarProdutos,
-          'etapa_enviar_fornecedores': EtapasScript_iniciarEnvioParaFornecedores,
-          'etapa_realizar_cotacao': EtapasScript_ativarModoRealizarCotacao,
-          'etapa_definir_empresa': EtapasScript_ativarModoDefinirEmpresa,
-          'etapa_definir_condicoes_pagamento': EtapasScript_ativarModoDefinirCondicoesPagamento,
-          'etapa_imprimir_pedidos': EtapasScript_abrirPaginaImpressao
-        };
-
-        const funcaoParaExecutar = acoesDasEtapas[action];
-
-        if (typeof funcaoParaExecutar === 'function') {
-          funcaoParaExecutar();
-          // Fecha o menu após o clique
-          dropdownEtapas.classList.remove('show');
-          dropdownEtapas.previousElementSibling.classList.remove('open');
-        } else {
-          console.warn(`Ação '${action}' não reconhecida.`);
-          cotacaoindividual_exibirFeedback(`Funcionalidade '${target.textContent}' não implementada.`, true);
-        }
+    function CotacaoIndividualScript_renderizarCabecalhoTabela() {
+      const tabela = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO);
+      if (!tabela) return;
+      const thead = tabela.querySelector('thead');
+      thead.innerHTML = '';
+      const tr = thead.insertRow();
+      (window.CotacaoIndividualScript_cabecalhosVisiveis || []).forEach(textoCabecalho => {
+        const th = document.createElement('th');
+        th.textContent = textoCabecalho;
+        tr.appendChild(th);
       });
     }
 
-    // --- ETAPA 1: CONTAGEM DE ESTOQUE ---
-
-    function EtapasScript_ativarModoContagemEstoque() {
-      console.log("EtapasScript: Ativando modo Contagem de Estoque (Modal).");
-      CotacaoIndividualScript_modoEtapaAtual = 'contagem_estoque';
-
-      if (CotacaoIndividualScript_dadosOriginaisCotacao.length === 0) {
-        cotacaoindividual_exibirFeedback("Dados da cotação ainda não carregados. Tente novamente.", true, 5000);
-        CotacaoIndividualScript_modoEtapaAtual = null;
-        return;
-      }
-      EtapasScript_renderizarConteudoModalContagem();
-      const modalOverlay = document.getElementById('EtapasScript_modalContagemEstoqueOverlay');
-      if (modalOverlay) {
-        modalOverlay.classList.add('active');
-      }
-      const btnSalvar = document.getElementById('EtapasScript_btnSalvarModalContagem');
-      const btnCancelar = document.getElementById('EtapasScript_btnCancelarModalContagem');
-      const btnFechar = document.getElementById('EtapasScript_btnFecharModalContagemEstoque');
-
-      btnSalvar.removeEventListener('click', EtapasScript_salvarContagemEstoqueEtapa);
-      btnCancelar.removeEventListener('click', EtapasScript_fecharModalContagemEstoque);
-      btnFechar.removeEventListener('click', EtapasScript_fecharModalContagemEstoque);
-
-      btnSalvar.addEventListener('click', EtapasScript_salvarContagemEstoqueEtapa);
-      btnCancelar.addEventListener('click', EtapasScript_fecharModalContagemEstoque);
-      btnFechar.addEventListener('click', EtapasScript_fecharModalContagemEstoque);
-    }
-
-    function EtapasScript_fecharModalContagemEstoque() {
-      console.log("EtapasScript: Fechando modal de Contagem de Estoque.");
-      const modalOverlay = document.getElementById('EtapasScript_modalContagemEstoqueOverlay');
-      if (modalOverlay) {
-        modalOverlay.classList.remove('active');
-      }
-      CotacaoIndividualScript_modoEtapaAtual = null;
-      const feedbackDiv = document.getElementById('EtapasScript_feedbackModalContagem');
-      if (feedbackDiv) feedbackDiv.innerHTML = '';
-    }
-
-    function EtapasScript_renderizarConteudoModalContagem() {
-      const tbody = document.getElementById('EtapasScript_tbodyModalContagemEstoque');
-      if (!tbody) return;
+    function CotacaoIndividualScript_renderizarGruposDeProdutos(dadosAgrupados) {
+      const tabela = document.getElementById(CotacaoIndividualScript_ID_TABELA_PRODUTOS_COTACAO);
+      if (!tabela) return;
+      const tbody = tabela.querySelector('tbody');
       tbody.innerHTML = '';
 
-      const produtosPrincipais = {};
-      CotacaoIndividualScript_dadosOriginaisCotacao.forEach(grupo => {
-        const nomeProduto = grupo.Produto;
-        if (!produtosPrincipais[nomeProduto]) {
-          produtosPrincipais[nomeProduto] = {
-            nome: nomeProduto,
-            estoqueMinimo: grupo.estoqueMinimoProdutoPrincipal ?? '',
-            dadosEstoqueCompra: CotacaoIndividualScript_parsearStringEstoqueComprar(grupo["Estoque Atual"])
-          };
-        }
-      });
-
-      const listaProdutos = Object.values(produtosPrincipais).sort((a, b) => a.nome.localeCompare(b.nome));
-      listaProdutos.forEach(produto => {
+      if (!dadosAgrupados || dadosAgrupados.length === 0) {
         const tr = tbody.insertRow();
-        tr.dataset.produtoNome = produto.nome;
-        tr.insertCell().textContent = produto.nome;
+        const td = tr.insertCell();
+        td.colSpan = window.CotacaoIndividualScript_cabecalhosVisiveis.length || 1;
+        td.style.textAlign = 'center';
+        td.style.padding = '2rem';
+        td.textContent = 'Nenhum produto para esta cotação.';
+        return;
+      }
+      
+      const agrupadoPorCategoria = dadosAgrupados.reduce((acc, produto) => {
+        const categoria = (produto.itens && produto.itens[0]?.Categoria) ? produto.itens[0].Categoria : 'Sem Categoria';
+        if (!acc[categoria]) acc[categoria] = [];
+        acc[categoria].push(produto);
+        return acc;
+      }, {});
 
-        const tdEstMin = tr.insertCell();
-        const inputEstMin = document.createElement('input');
-        inputEstMin.type = 'number';
-        inputEstMin.className = 'input-contagem input-estoque-min-prod-principal';
-        inputEstMin.value = produto.estoqueMinimo;
-        tdEstMin.appendChild(inputEstMin);
+      Object.keys(agrupadoPorCategoria).sort().forEach(nomeCategoria => {
+        const categoriaRow = tbody.insertRow();
+        categoriaRow.className = 'categoria-accordion-header-row expanded';
+        const categoriaCell = categoriaRow.insertCell();
+        categoriaCell.colSpan = window.CotacaoIndividualScript_cabecalhosVisiveis.length;
+        categoriaCell.innerHTML = `<div class="categoria-header-content"><svg class="categoria-accordion-icon" style="transform: rotate(90deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg><span>${nomeCategoria}</span></div>`;
 
-        const tdEstContado = tr.insertCell();
-        const inputEstContado = document.createElement('input');
-        inputEstContado.type = 'number';
-        inputEstContado.className = 'input-contagem input-estoque-contado-prod-principal';
-        inputEstContado.value = produto.dadosEstoqueCompra.estoqueAtual ?? '';
-        tdEstContado.appendChild(inputEstContado);
+        const contentRows = [];
+        agrupadoPorCategoria[nomeCategoria].forEach(grupoProduto => {
+          const produtoRow = tbody.insertRow();
+          contentRows.push(produtoRow);
+          produtoRow.className = 'produto-group-separator-row';
+          produtoRow.dataset.produtoNome = grupoProduto.Produto;
+          const produtoCell = produtoRow.insertCell();
+          produtoCell.colSpan = window.CotacaoIndividualScript_cabecalhosVisiveis.length;
+          
+          const wrap = document.createElement('div');
+          wrap.className = 'contagem-container-principal';
+          const info = document.createElement('div');
+          info.className = 'produto-principal-info';
+          info.textContent = grupoProduto.Produto;
+          const actions = document.createElement('div');
+          actions.className = 'contagem-fields-container';
 
-        const tdComprar = tr.insertCell();
-        const inputComprar = document.createElement('input');
-        inputComprar.type = 'number';
-        inputComprar.className = 'input-contagem input-comprar-sugestao-prod-principal';
-        inputComprar.value = produto.dadosEstoqueCompra.comprar ?? '';
-        tdComprar.appendChild(inputComprar);
-      });
-    }
+          // =================================================================
+          // CORREÇÃO APLICADA AQUI
+          // Convertemos os valores para número ANTES de usar .toFixed()
+          // =================================================================
+          const estMinimoNum = CotacaoIndividualScript_parseNumeroPtBr(grupoProduto.estoqueMinimoProdutoPrincipal);
+          const demandaMediaNum = CotacaoIndividualScript_parseNumeroPtBr(grupoProduto.demandaMediaProdutoPrincipal);
+          
+          const estMinimoDisplay = !isNaN(estMinimoNum) ? estMinimoNum.toFixed(2) : 'N/A';
+          const demandaMediaDisplay = !isNaN(demandaMediaNum) ? demandaMediaNum.toFixed(2) : 'N/A';
+          // =================================================================
 
-    async function EtapasScript_salvarContagemEstoqueEtapa() {
-      const dadosParaSalvar = [];
-      document.querySelectorAll('#EtapasScript_tbodyModalContagemEstoque tr').forEach(row => {
-        const produtoNome = row.dataset.produtoNome;
-        if (!produtoNome) return;
-        const novoEstoqueMinimo = row.querySelector('.input-estoque-min-prod-principal').value;
-        const estoqueContado = row.querySelector('.input-estoque-contado-prod-principal').value;
-        const comprarSugestao = row.querySelector('.input-comprar-sugestao-prod-principal').value;
-        if (novoEstoqueMinimo !== '' || estoqueContado !== '' || comprarSugestao !== '') {
-          dadosParaSalvar.push({
-            nomeProdutoPrincipal: produtoNome,
-            novoEstoqueMinimoProdutoPrincipal: novoEstoqueMinimo !== '' ? parseFloat(novoEstoqueMinimo.replace(',', '.')) : null,
-            estoqueAtualContagem: estoqueContado !== '' ? parseFloat(estoqueContado.replace(',', '.')) : null,
-            comprarSugestao: comprarSugestao !== '' ? parseFloat(comprarSugestao.replace(',', '.')) : null
+          let totalComprar = (grupoProduto.itens || []).reduce((sum, item) => sum + (CotacaoIndividualScript_parseNumeroPtBr(item.Comprar) || 0), 0);
+          const estoqueAtual = CotacaoIndividualScript_parseNumeroPtBr(grupoProduto.estoqueAtualProdutoPrincipal) || 0;
+          const saldoEstoque = estoqueAtual - totalComprar;
+          const metricas = CotacaoIndividualScript_calcularMetricasNegociacao(grupoProduto);
+
+          actions.innerHTML = `
+            <div class="contagem-field-block"><span class="campo-contagem-label">Est. Mínimo:</span><span class="campo-contagem-valor">${estMinimoDisplay}</span></div>
+            <div class="contagem-field-block"><span class="campo-contagem-label">Demanda Média:</span><span class="campo-contagem-valor">${demandaMediaDisplay}</span></div>
+            <div class="contagem-field-block"><span class="campo-contagem-label">Est. Atual / Comprar:</span><span class="campo-contagem-valor ${saldoEstoque < 0 ? 'negativo' : ''}" data-role="saldo-estoque">${estoqueAtual.toFixed(2)} / ${totalComprar.toFixed(2)}</span></div>
+            <span class="info-badge indicador-oportunidade" data-role="metricas-negociacao">Oportunidade: ${CotacaoIndividualScript_formatarPreco(metricas.oportunidadeReais)} | Spread: ${metricas.spreadPercent.toFixed(2)}%</span>`;
+          
+          const btnNeg = document.createElement('button');
+          btnNeg.className = 'info-badge clickable negociacao-btn';
+          btnNeg.dataset.produtoNome = grupoProduto.Produto;
+          btnNeg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 5h2v8h-2V8zm-4 0h2v8H9V8z"/></svg><span>Negociação</span>`;
+          actions.appendChild(btnNeg);
+          wrap.appendChild(info);
+          wrap.appendChild(actions);
+          produtoCell.appendChild(wrap);
+
+          (grupoProduto.itens || []).forEach(item => {
+            const subProdutoRow = tbody.insertRow();
+            contentRows.push(subProdutoRow);
+            subProdutoRow.className = 'sub-produto-row';
+            subProdutoRow.dataset.produto = item.Produto;
+            subProdutoRow.dataset.fornecedor = item.Fornecedor;
+            subProdutoRow.dataset.subprodutoOriginalPersistido = item._subProdutoOriginalPersistido;
+            
+            window.CotacaoIndividualScript_cabecalhosVisiveis.forEach(cabecalho => {
+              const td = subProdutoRow.insertCell();
+              let valor = item[cabecalho];
+              if (valor === undefined || valor === null) valor = '';
+              
+              if (['Preço', 'Preço por Fator', 'Valor Total'].includes(cabecalho)) {
+                td.textContent = CotacaoIndividualScript_formatarPreco(valor);
+              } else if (['Fator', 'Comprar'].includes(cabecalho)) {
+                const num = CotacaoIndividualScript_parseNumeroPtBr(valor);
+                td.textContent = !isNaN(num) ? num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '';
+              } else {
+                td.textContent = valor;
+              }
+              
+              td.dataset.coluna = cabecalho;
+              td.dataset.valorOriginal = td.textContent;
+              if (["SubProduto", "Tamanho", "UN", "Fator", "Preço", "Comprar"].includes(cabecalho)) {
+                td.classList.add('editable-price-cell');
+                td.addEventListener('click', CotacaoIndividualScript_transformarCelulaEmInput);
+              }
+              if (CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]) {
+                td.classList.add(CotacaoIndividualScript_MAPA_CORES_COLUNAS[cabecalho]);
+              }
+            });
           });
-        }
-      });
-
-      if (dadosParaSalvar.length === 0) {
-        EtapasScript_exibirFeedbackModalContagem("Nenhum dado foi inserido para salvar.", false, 4000);
-        return;
-      }
-
-      const btnSalvar = document.getElementById('EtapasScript_btnSalvarModalContagem');
-      btnSalvar.disabled = true;
-      btnSalvar.textContent = 'Salvando...';
-      EtapasScript_exibirFeedbackModalContagem("Salvando contagem...", false, 0);
-
-      const response = await cotacaoindividual_callApi('cotacaoindividual/salvar-contagem', 'POST', {
-        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
-        dadosContagem: dadosParaSalvar
-      });
-
-      btnSalvar.disabled = false;
-      btnSalvar.textContent = 'Salvar Contagem';
-      if (response.success) {
-        EtapasScript_fecharModalContagemEstoque();
-        cotacaoindividual_exibirFeedback(response.message || "Contagem salva! Atualizando dados...", false, 5000);
-        cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
-      } else {
-        EtapasScript_exibirFeedbackModalContagem(response.message || "Falha ao salvar.", true, 7000);
-      }
-    }
-
-    function EtapasScript_exibirFeedbackModalContagem(mensagem, isError = false, duracao = 5000) {
-      const feedbackDiv = document.getElementById('EtapasScript_feedbackModalContagem');
-      if (feedbackDiv) {
-        const innerDiv = document.createElement('div');
-        innerDiv.className = `p-3 rounded-md text-sm ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
-        innerDiv.textContent = mensagem;
-        feedbackDiv.innerHTML = '';
-        feedbackDiv.appendChild(innerDiv);
-        if (duracao > 0) setTimeout(() => { if (feedbackDiv.contains(innerDiv)) feedbackDiv.innerHTML = ''; }, duracao);
-      }
-    }
-
-    // --- ETAPA 2: RETIRAR PRODUTOS ---
-
-    function EtapasScript_identificarProdutosParaRetirada() {
-      const produtosParaRetirada = { crit1: [], crit2: [], crit3: [] };
-      if (!CotacaoIndividualScript_dadosOriginaisCotacao) return produtosParaRetirada;
-
-      CotacaoIndividualScript_dadosOriginaisCotacao.forEach(grupoProduto => {
-        const nomeProdutoPrincipal = grupoProduto.Produto;
-        const estoqueMin = grupoProduto.estoqueMinimoProdutoPrincipal;
-        const dadosEstoque = CotacaoIndividualScript_parsearStringEstoqueComprar(grupoProduto['Estoque Atual']);
-
-        if (dadosEstoque.estoqueAtual !== null && estoqueMin !== null && dadosEstoque.estoqueAtual >= estoqueMin) {
-          produtosParaRetirada.crit1.push({ nomeProdutoPrincipal, motivo: `Est. Atual (${dadosEstoque.estoqueAtual}) >= Mín. (${estoqueMin})` });
-        } else if (dadosEstoque.estoqueAtual === null && dadosEstoque.comprar === null) {
-          produtosParaRetirada.crit2.push({ nomeProdutoPrincipal, motivo: "Não foi marcado para comprar." });
-        } else if (estoqueMin === null) {
-          produtosParaRetirada.crit3.push({ nomeProdutoPrincipal, motivo: "Produto sem estoque mínimo definido." });
-        }
-      });
-      return produtosParaRetirada;
-    }
-
-    async function EtapasScript_manipularExclusaoProdutosRetirar() {
-      const produtosParaExcluir = Array.from(document.querySelectorAll('#EtapasScript_modalRetirarProdutosOverlay .checkbox-retirar-item-principal:checked'))
-        .map(cb => cb.dataset.produtoPrincipal);
-
-      if (produtosParaExcluir.length === 0) {
-        EtapasScript_exibirFeedbackModalRetirarProdutos("Nenhum produto selecionado.", true, 4000);
-        return;
-      }
-
-      const btnConfirmar = document.getElementById('EtapasScript_btnConfirmarRemocaoModal');
-      btnConfirmar.disabled = true;
-      btnConfirmar.textContent = 'Excluindo...';
-      EtapasScript_exibirFeedbackModalRetirarProdutos("Excluindo produtos...", false, 0);
-
-      const response = await cotacaoindividual_callApi('cotacaoindividual/retirar-produtos', 'POST', {
-        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
-        nomesProdutosPrincipaisParaExcluir: produtosParaExcluir
-      });
-
-      btnConfirmar.disabled = false;
-      btnConfirmar.textContent = 'Confirmar Remoção';
-      if (response.success) {
-        EtapasScript_fecharModalRetirarProdutos();
-        cotacaoindividual_exibirFeedback("Produtos retirados com sucesso!", false, 5000);
-        cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
-      } else {
-        EtapasScript_exibirFeedbackModalRetirarProdutos(response.message || "Falha ao retirar produtos.", true, 7000);
-      }
-    }
-
-    function EtapasScript_ativarModoRetirarProdutos() {
-      console.log("EtapasScript: Ativando modo Retirar Produtos (Modal).");
-      CotacaoIndividualScript_modoEtapaAtual = 'retirar_produtos';
-      if (CotacaoIndividualScript_dadosOriginaisCotacao.length === 0) {
-        cotacaoindividual_exibirFeedback("Dados da cotação ainda não carregados.", true, 5000);
-        CotacaoIndividualScript_modoEtapaAtual = null;
-        return;
-      }
-      EtapasScript_renderizarConteudoModalRetirarProdutos();
-      document.getElementById('EtapasScript_modalRetirarProdutosOverlay')?.classList.add('active');
-      const btnConfirmar = document.getElementById('EtapasScript_btnConfirmarRemocaoModal');
-      const btnCancelar = document.getElementById('EtapasScript_btnCancelarModalRetirarProdutos');
-      const btnFechar = document.getElementById('EtapasScript_btnFecharModalRetirarProdutos');
-
-      btnConfirmar.removeEventListener('click', EtapasScript_manipularExclusaoProdutosRetirar);
-      btnCancelar.removeEventListener('click', EtapasScript_fecharModalRetirarProdutos);
-      btnFechar.removeEventListener('click', EtapasScript_fecharModalRetirarProdutos);
-
-      btnConfirmar.addEventListener('click', EtapasScript_manipularExclusaoProdutosRetirar);
-      btnCancelar.addEventListener('click', EtapasScript_fecharModalRetirarProdutos);
-      btnFechar.addEventListener('click', EtapasScript_fecharModalRetirarProdutos);
-    }
-
-    function EtapasScript_fecharModalRetirarProdutos() {
-      document.getElementById('EtapasScript_modalRetirarProdutosOverlay')?.classList.remove('active');
-      CotacaoIndividualScript_modoEtapaAtual = null;
-      const feedbackDiv = document.getElementById('EtapasScript_feedbackModalRetirarProdutos');
-      if (feedbackDiv) feedbackDiv.innerHTML = '';
-    }
-
-    // --- ETAPA 3: ENVIAR PARA FORNECEDORES ---
-    async function EtapasScript_iniciarEnvioParaFornecedores() {
-      console.log("EtapasScript: Iniciando envio para fornecedores.");
-      if (!CotacaoIndividualScript_cotacaoIdAtual) {
-        cotacaoindividual_exibirFeedback("ID da Cotação não definido.", true, 5000);
-        return;
-      }
-      cotacaoindividual_mostrarLoadingOverlay(true, "Atualizando status da cotação...");
-      const response = await cotacaoindividual_callApi('cotacaoindividual/atualizar-status', 'POST', {
-        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
-        novoStatus: "Aguardando Preços"
-      });
-
-      cotacaoindividual_mostrarLoadingOverlay(false);
-      if (response.success) {
-        cotacaoindividual_exibirFeedback("Status atualizado! A cotação está pronta para o envio aos fornecedores.", false, 7000);
-        // A lógica de gerar e enviar links seria em outro local/módulo no Firebase.
-      } else {
-        cotacaoindividual_exibirFeedback(response.message || "Falha ao atualizar status.", true, 7000);
-      }
-    }
-
-    // --- ETAPA 4: REALIZAR COTAÇÃO ---
-
-    async function EtapasScript_ativarModoRealizarCotacao() {
-      console.log("EtapasScript: Ativando modo Realizar Cotação.");
-      CotacaoIndividualScript_modoEtapaAtual = 'realizar_cotacao';
-      document.getElementById('EtapasScript_realizarCotacaoContainer').classList.remove('hidden');
-      document.getElementById('CotacaoIndividualScript_tableContainer').classList.add('hidden');
-
-      const subprodutosSemPreco = EtapasScript_identificarSubprodutosSemPreco();
-      EtapasScript_renderizarListaSubprodutosSemPreco(subprodutosSemPreco);
-
-      cotacaoindividual_mostrarLoadingOverlay(true, "Atualizando status...");
-      const response = await cotacaoindividual_callApi('cotacaoindividual/atualizar-status', 'POST', {
-        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
-        novoStatus: "Realizando Cotação"
-      });
-      cotacaoindividual_mostrarLoadingOverlay(false);
-      if (!response.success) {
-        cotacaoindividual_exibirFeedback(response.message || "Falha ao atualizar status.", true, 5000);
-      }
-    }
-
-    function EtapasScript_desativarModoRealizarCotacao() {
-      console.log("EtapasScript: Desativando modo Realizar Cotação.");
-      CotacaoIndividualScript_modoEtapaAtual = null;
-      document.getElementById('EtapasScript_realizarCotacaoContainer').classList.add('hidden');
-      document.getElementById('CotacaoIndividualScript_tableContainer').classList.remove('hidden');
-      cotacaoindividual_exibirFeedback("Visualização padrão restaurada.", false, 3000);
-    }
-
-    function EtapasScript_identificarSubprodutosSemPreco() {
-      if (!CotacaoIndividualScript_dadosOriginaisCotacao) return [];
-      const semPreco = [];
-      CotacaoIndividualScript_dadosOriginaisCotacao.forEach(grupo => {
-        grupo.itens.forEach(item => {
-          const preco = cotacaoindividual_parseNumeroPtBr(item['Preço']);
-          if (isNaN(preco) || preco === 0) {
-            semPreco.push(item);
-          }
+        });
+        
+        categoriaRow.addEventListener('click', () => {
+          const isExpanded = categoriaRow.classList.toggle('expanded');
+          const icon = categoriaRow.querySelector('.categoria-accordion-icon');
+          if (icon) icon.style.transform = isExpanded ? 'rotate(90deg)' : 'rotate(0deg)';
+          contentRows.forEach(row => row.classList.toggle('hidden-by-category', !isExpanded));
         });
       });
-      return semPreco;
+      
+      document.querySelectorAll('.negociacao-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          CotacaoIndividualScript_abrirModalNegociacao(event.currentTarget.dataset.produtoNome);
+        });
+      });
     }
 
-    async function EtapasScript_manipularExclusaoSubprodutosSemPreco() {
-      const subprodutosParaExcluir = Array.from(document.querySelectorAll('.checkbox-retirar-subproduto-sem-preco:checked'))
-        .map(cb => ({
-          Produto: cb.dataset.produto,
-          SubProdutoChave: cb.dataset.subproduto,
-          Fornecedor: cb.dataset.fornecedor
-        }));
+    function CotacaoIndividualScript_calcularMetricasNegociacao(grupo) {
+      const resultado = { oportunidadeReais: 0, spreadPercent: 0 };
+      if (!grupo || !grupo.itens || grupo.itens.length < 2) return resultado;
 
-      if (subprodutosParaExcluir.length > 0) {
-        cotacaoindividual_mostrarLoadingOverlay(true, "Excluindo subprodutos...");
-        const response = await cotacaoindividual_callApi('cotacaoindividual/retirar-subprodutos', 'POST', {
-          idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
-          subprodutosParaExcluir: subprodutosParaExcluir
-        });
-        cotacaoindividual_mostrarLoadingOverlay(false);
+      const precosPorFatorValidos = grupo.itens
+        .map(item => {
+          const preco = CotacaoIndividualScript_parseNumeroPtBr(item["Preço"]);
+          const fator = CotacaoIndividualScript_parseNumeroPtBr(item["Fator"]);
+          return (fator > 0) ? (preco / fator) : null;
+        })
+        .filter(p => p !== null && p > 0).sort((a, b) => a - b);
+      
+      if (precosPorFatorValidos.length < 2) return resultado;
+      
+      const p1 = precosPorFatorValidos[0];
+      const p2 = precosPorFatorValidos[1];
+      const mid = Math.floor(precosPorFatorValidos.length / 2);
+      const pMediana = precosPorFatorValidos.length % 2 === 0 ? (precosPorFatorValidos[mid - 1] + precosPorFatorValidos[mid]) / 2 : precosPorFatorValidos[mid];
+      const quantidadeBase = CotacaoIndividualScript_parseNumeroPtBr(grupo.demandaMediaProdutoPrincipal);
 
-        if (response.success) {
-          cotacaoindividual_exibirFeedback("Subprodutos sem preço removidos.", false, 4000);
-          await cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
-        } else {
-          cotacaoindividual_exibirFeedback(response.message || "Falha ao excluir.", true, 5000);
-          return; // Não continua se a exclusão falhar
+      if (!isNaN(quantidadeBase) && quantidadeBase > 0 && pMediana > p1) {
+        resultado.oportunidadeReais = (pMediana - p1) * quantidadeBase;
+      }
+      if (p1 > 0 && p2) {
+        resultado.spreadPercent = ((p2 - p1) / p1) * 100;
+      }
+      return resultado;
+    }
+
+    //----------------------------------------------------------------------------------------------------
+    // LÓGICA DE EDIÇÃO INLINE E MODAIS
+    //----------------------------------------------------------------------------------------------------
+
+    async function CotacaoIndividualScript_salvarEdicaoInline(element) {
+      const td = element.parentElement;
+      let novoValorStr = element.value;
+      const valorOriginalStr = td.dataset.valorOriginal || '';
+      const coluna = td.dataset.coluna;
+      const camposNumericos = ["Fator", "Preço", "Comprar"];
+
+      if (camposNumericos.includes(coluna)) novoValorStr = String(novoValorStr).replace(',', '.');
+      const valorOriginalComparacao = String(valorOriginalStr).replace(/\./g, '').replace(',', '.');
+      
+      if (novoValorStr === valorOriginalComparacao) {
+        td.textContent = valorOriginalStr;
+        return;
+      }
+
+      let valorDisplay = novoValorStr;
+      const num = CotacaoIndividualScript_parseNumeroPtBr(novoValorStr);
+      if (camposNumericos.includes(coluna) && !isNaN(num)) {
+        const fractionDigits = { 'Preço': 2, 'Comprar': 2, 'Fator': 4 };
+        valorDisplay = num.toLocaleString('pt-BR', { minimumFractionDigits: fractionDigits[coluna] || 2, maximumFractionDigits: fractionDigits[coluna] || 4 });
+      }
+      td.textContent = valorDisplay;
+
+      if (["Fator", "Preço", "Comprar"].includes(coluna)) {
+        CotacaoIndividualScript_atualizarGrupoDeCalculosCliente(td.closest('tr'));
+      }
+
+      const tr = td.closest('tr');
+      const response = await CotacaoIndividualScript_callApi('salvar-celula', 'POST', {
+        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+        identificadoresLinha: {
+          Produto: tr.dataset.produto,
+          SubProdutoChave: tr.dataset.subprodutoOriginalPersistido,
+          Fornecedor: tr.dataset.fornecedor
+        },
+        colunaAlterada: coluna,
+        novoValor: novoValorStr
+      });
+
+      if (response && response.success) {
+        td.dataset.valorOriginal = valorDisplay;
+        if (response.novoSubProdutoNomeSeAlterado) {
+          tr.dataset.subprodutoOriginalPersistido = response.novoSubProdutoNomeSeAlterado;
+        }
+      } else {
+        CotacaoIndividualScript_exibirFeedback(response.message || 'Falha ao salvar.', true);
+        td.textContent = valorOriginalStr;
+        CotacaoIndividualScript_atualizarGrupoDeCalculosCliente(tr);
+      }
+    }
+
+    function CotacaoIndividualScript_transformarCelulaEmInput(event) {
+      const td = event.currentTarget;
+      if (td.querySelector('input')) return;
+      const valorOriginal = td.dataset.valorOriginal || '';
+      const coluna = td.dataset.coluna;
+      const tipoInput = ["Fator", "Preço", "Comprar"].includes(coluna) ? 'number' : 'text';
+      td.innerHTML = `<input type="${tipoInput}" step="any" class="inline-edit-input" value="${valorOriginal.replace(/\./g, '').replace(',', '.')}" style="width: 95%; box-sizing: border-box; font-size: inherit; font-family: inherit; border: 1px solid #1D4ED8; border-radius: 3px;" />`;
+      const input = td.querySelector('input');
+      input.focus();
+      input.select();
+
+      const salvar = () => CotacaoIndividualScript_salvarEdicaoInline(input);
+      input.addEventListener('blur', salvar);
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          input.removeEventListener('blur', salvar);
+          input.parentElement.textContent = valorOriginal;
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        }
+      });
+    }
+
+    function CotacaoIndividualScript_atualizarGrupoDeCalculosCliente(trEditadaOuHeader) {
+      const nomeProdutoPrincipal = trEditadaOuHeader.classList.contains('produto-group-separator-row') ? trEditadaOuHeader.dataset.produtoNome : trEditadaOuHeader.dataset.produto;
+      if (!nomeProdutoPrincipal) return;
+
+      const tbody = trEditadaOuHeader.closest('tbody');
+      const todasLinhasDoGrupo = tbody.querySelectorAll(`tr.sub-produto-row[data-produto="${nomeProdutoPrincipal}"]`);
+      const headerRow = tbody.querySelector(`tr.produto-group-separator-row[data-produto-nome="${nomeProdutoPrincipal}"]`);
+      if (!headerRow) return;
+
+      const lerValorDaLinha = (tr, coluna) => CotacaoIndividualScript_parseNumeroPtBr(tr.querySelector(`td[data-coluna="${coluna}"]`)?.textContent || '0');
+      const escreverValorNaLinha = (tr, coluna, valor, formatador) => {
+        const cell = tr.querySelector(`td[data-coluna="${coluna}"]`);
+        if (cell) {
+          const valorFormatado = formatador(valor);
+          cell.textContent = valorFormatado;
+          cell.dataset.valorOriginal = valorFormatado;
+        }
+      };
+
+      let totalComprar = 0;
+      todasLinhasDoGrupo.forEach(tr => {
+        const preco = lerValorDaLinha(tr, "Preço");
+        const fator = lerValorDaLinha(tr, "Fator");
+        const comprar = lerValorDaLinha(tr, "Comprar");
+        totalComprar += comprar;
+        escreverValorNaLinha(tr, "Preço por Fator", fator > 0 ? (preco / fator) : 0, v => v.toLocaleString('pt-BR', {minimumFractionDigits: 4, maximumFractionDigits: 4}));
+        escreverValorNaLinha(tr, "Valor Total", preco * comprar, CotacaoIndividualScript_formatarPreco);
+      });
+
+      const grupoOriginal = (window.CotacaoIndividualScript_dadosOriginaisCotacao || []).find(g => g.Produto === nomeProdutoPrincipal);
+      if (grupoOriginal) {
+        const estoqueAtual = grupoOriginal.estoqueAtualProdutoPrincipal || 0;
+        const saldoEstoque = estoqueAtual - totalComprar;
+        const saldoSpan = headerRow.querySelector('[data-role="saldo-estoque"]');
+        if (saldoSpan) {
+          saldoSpan.textContent = `${estoqueAtual.toFixed(2)} / ${totalComprar.toFixed(2)}`;
+          saldoSpan.classList.toggle('negativo', saldoEstoque < 0);
         }
       }
-      EtapasScript_iniciarEdicao();
-    }
 
-    function EtapasScript_iniciarEdicao() {
-      document.getElementById('EtapasScript_realizarCotacaoContainer').classList.add('hidden');
-      document.getElementById(CotacaoIndividualScript_tableContainer).classList.remove('hidden');
-      cotacaoindividual_exibirFeedback("Modo de edição ativado. Clique em uma célula para editar.", false, 6000);
-    }
-
-    // --- ETAPA 5: DEFINIR EMPRESA PARA FATURAMENTO ---
-    let EtapasScript_empresasParaFaturamento = [];
-    let EtapasScript_pedidosMinimosFornecedores = {};
-
-    async function EtapasScript_ativarModoDefinirEmpresa() {
-      console.log("EtapasScript: Ativando modo Definir Empresa (Modal).");
-      CotacaoIndividualScript_modoEtapaAtual = 'definir_empresa';
-
-      const modalOverlay = document.getElementById('EtapasScript_modalDefinirEmpresaOverlay');
-      if (!modalOverlay) return;
-
-      modalOverlay.classList.add('active');
-      EtapasScript_exibirFeedbackModalDefinirEmpresa("Carregando dados...", false, 0);
-
-      const response = await cotacaoindividual_callApi('cotacaoindividual/dados-faturamento', 'GET');
-
-      if (response.success) {
-        EtapasScript_empresasParaFaturamento = response.empresas || [];
-        EtapasScript_pedidosMinimosFornecedores = response.pedidosMinimos || {};
-        // Lógica de renderização do modal aqui...
-        EtapasScript_exibirFeedbackModalDefinirEmpresa("Dados carregados.", false, 4000);
-      } else {
-        EtapasScript_exibirFeedbackModalDefinirEmpresa(response.message || "Falha ao carregar dados.", true, 5000);
-        setTimeout(() => EtapasScript_fecharModalDefinirEmpresa(), 5000);
+      const metricas = CotacaoIndividualScript_calcularMetricasNegociacao(grupoOriginal);
+      const metricasSpan = headerRow.querySelector('[data-role="metricas-negociacao"]');
+      if (metricasSpan) {
+        metricasSpan.textContent = `Oportunidade: ${CotacaoIndividualScript_formatarPreco(metricas.oportunidadeReais)} | Spread: ${metricas.spreadPercent.toFixed(2)}%`;
       }
-
-      // ... resto da lógica de renderização e botões ...
     }
 
-    function EtapasScript_fecharModalDefinirEmpresa() {
-      document.getElementById('EtapasScript_modalDefinirEmpresaOverlay')?.classList.remove('active');
-      CotacaoIndividualScript_modoEtapaAtual = null;
-    }
+    function CotacaoIndividualScript_abrirModalNegociacao(produto) {
+      const subprodutos = (window.CotacaoIndividualScript_dadosOriginaisCotacao || [])
+        .find(g => g.Produto === produto)?.itens
+        .map(item => ({
+          fornecedor: item.Fornecedor,
+          subproduto: item.SubProduto || item.Subproduto,
+          preco: CotacaoIndividualScript_parseNumeroPtBr(item.Preço)
+        }))
+        .sort((a, b) => (a.preco || Infinity) - (b.preco || Infinity)) || [];
 
-    async function EtapasScript_salvarFaturamentoEmLote() {
-      const alteracoes = EtapasScript_coletarAlteracoesFaturamento();
-      if (alteracoes.length === 0) {
-        EtapasScript_exibirFeedbackModalDefinirEmpresa("Nenhuma alteração para salvar.", false, 4000);
-        return;
-      }
-      const btnSalvar = document.getElementById('EtapasScript_btnSalvarFaturamento');
-      btnSalvar.disabled = true;
-      btnSalvar.textContent = 'Salvando...';
+      const modal = document.getElementById('CotacaoIndividualScript_modalNegociacaoOverlay');
+      const tituloModal = document.getElementById('CotacaoIndividualScript_modalNegociacao_titulo');
+      const select = document.getElementById('CotacaoIndividualScript_selectSubproduto');
+      const inpPerc = document.getElementById('CotacaoIndividualScript_inputPercentual');
+      const inpNovo = document.getElementById('CotacaoIndividualScript_inputPrecoNovo');
+      const txt = document.getElementById('CotacaoIndividualScript_textareaMensagem');
 
-      const response = await cotacaoindividual_callApi('cotacaoindividual/salvar-faturamento', 'POST', {
-        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
-        alteracoes: alteracoes
+      tituloModal.textContent = `Negociação: ${produto}`;
+      select.innerHTML = '';
+      subprodutos.forEach((sp, idx) => {
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = `${sp.subproduto} — ${sp.fornecedor} — ${CotacaoIndividualScript_formatarPreco(sp.preco)}`;
+        select.appendChild(opt);
       });
 
-      btnSalvar.disabled = false;
-      btnSalvar.textContent = 'Salvar e Fechar';
-      if (response.success) {
-        EtapasScript_fecharModalDefinirEmpresa();
-        cotacaoindividual_exibirFeedback("Faturamento salvo com sucesso! Atualizando...", false, 5000);
-        cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
+      const atualizar = () => {
+        const sp = subprodutos[Number(select.value)];
+        if (!sp) return;
+        document.getElementById('CotacaoIndividualScript_infoSubproduto').textContent = `Base: ${sp.subproduto} — ${sp.fornecedor} — ${CotacaoIndividualScript_formatarPreco(sp.preco)}`;
+        const novo = (Number(sp.preco) || 0) * (1 - (Number(inpPerc.value) || 0) / 100);
+        inpNovo.value = CotacaoIndividualScript_formatarPreco(novo);
+        txt.value = `Olá, tudo bem?\n\nEstou cotando o produto: ${produto}.\n\nConsegui um preço melhor de ${CotacaoIndividualScript_formatarPreco(novo)}. Você consegue cobrir essa oferta?\n\nFico no aguardo, obrigado!`;
+      };
+
+      select.onchange = atualizar;
+      inpPerc.oninput = atualizar;
+      atualizar();
+      modal.classList.add('active');
+    }
+
+    //----------------------------------------------------------------------------------------------------
+    // INICIALIZAÇÃO E EVENT LISTENERS
+    //----------------------------------------------------------------------------------------------------
+
+    async function CotacaoIndividualScript_inicializarPagina() {
+      console.log("CotacaoIndividualScript: Inicializando...");
+      CotacaoIndividualScript_vincularDropdowns();
+      
+      const params = new URLSearchParams(window.location.search);
+      const idCotacao = params.get('idCotacao');
+      const spanIdCotacao = document.getElementById(CotacaoIndividualScript_ID_COTACAO_EXIBIDO);
+
+      if (idCotacao) {
+        if (spanIdCotacao) spanIdCotacao.textContent = idCotacao;
+        document.title = `Cotação: ${idCotacao}`;
+        await CotacaoIndividualScript_carregarDadosCotacao(idCotacao);
       } else {
-        EtapasScript_exibirFeedbackModalDefinirEmpresa(response.message || "Falha ao salvar.", true, 7000);
+        if (spanIdCotacao) spanIdCotacao.textContent = "Inválida";
+        document.title = "Cotação Inválida";
+        CotacaoIndividualScript_exibirFeedback("ID da Cotação não fornecido na URL.", true, 0);
+        document.getElementById('CotacaoIndividualScript_tabelaLoadingMsg')?.closest('tbody').remove();
       }
     }
 
-    // --- ETAPA 6: DEFINIR CONDIÇÕES DE PAGAMENTO ---
-    async function EtapasScript_ativarModoDefinirCondicoesPagamento() {
-      console.log("EtapasScript: Ativando modo Definir Condições de Pagamento (Modal).");
-      CotacaoIndividualScript_modoEtapaAtual = 'definir_condicoes_pagamento';
-
-      const modalOverlay = document.getElementById('EtapasScript_modalCondicoesPagamentoOverlay');
-      modalOverlay.classList.add('active');
-      EtapasScript_exibirFeedbackModalCondicoes("Carregando dados...", false, 0);
-
-      const response = await cotacaoindividual_callApi('cotacaoindividual/dados-condicoes', 'GET');
-      if (response.success) {
-        // Lógica de renderização do modal de condições...
-        EtapasScript_exibirFeedbackModalCondicoes("", false, 1);
-      } else {
-        EtapasScript_exibirFeedbackModalCondicoes(response.message || "Falha ao carregar dados.", true, 5000);
-        setTimeout(EtapasScript_fecharModalCondicoesPagamento, 3000);
-      }
-    }
-
-    function EtapasScript_fecharModalCondicoesPagamento() {
-      document.getElementById('EtapasScript_modalCondicoesPagamentoOverlay')?.classList.remove('active');
-      CotacaoIndividualScript_modoEtapaAtual = null;
-    }
-
-    async function EtapasScript_salvarDadosCondicoesPagamento() {
-      // Lógica para coletar dados do formulário do modal
-      const dadosParaSalvar = []; //... preencher com os dados
-      if (dadosParaSalvar.length === 0) {
-        EtapasScript_exibirFeedbackModalCondicoes("Não há dados para salvar.", false, 4000);
-        return;
-      }
-
-      const btnSalvar = document.getElementById('EtapasScript_btnSalvarModalCondicoes');
-      btnSalvar.disabled = true;
-      btnSalvar.textContent = "Salvando...";
-
-      const response = await cotacaoindividual_callApi('cotacaoindividual/salvar-condicoes', 'POST', {
-        idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
-        dadosPagamento: dadosParaSalvar
-      });
-
-      btnSalvar.disabled = false;
-      btnSalvar.textContent = "Salvar Condições";
-      if (response.success) {
-        EtapasScript_fecharModalCondicoesPagamento();
-        cotacaoindividual_exibirFeedback(response.message, false, 6000);
-        cotacaoindividual_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual);
-      } else {
-        EtapasScript_exibirFeedbackModalCondicoes(response.message || "Falha ao salvar.", true, 8000);
-      }
-    }
-
-    // --- ETAPA 7: IMPRIMIR PEDIDOS ---
-
-    function EtapasScript_abrirPaginaImpressao() {
-      console.log("EtapasScript: Abrindo página de impressão.");
-      if (!CotacaoIndividualScript_cotacaoIdAtual) {
-        cotacaoindividual_exibirFeedback("ID da Cotação não encontrado.", true, 5000);
-        return;
-      }
-      // No Firebase, a geração de PDF é diferente.
-      // O ideal é abrir uma nova aba com uma view que buscará os dados e gerará o PDF no cliente.
-      const url = `/views/ImprimirPedidosView.html?idCotacao=${CotacaoIndividualScript_cotacaoIdAtual}`;
-      window.open(url, '_blank');
-    }
-
-    //####################################################################################################
-    // FIM DO MÓDULO DE ETAPAS (CLIENT-SIDE)
-    //####################################################################################################
-
+    // Inicialização da página
+    document.addEventListener('DOMContentLoaded', CotacaoIndividualScript_inicializarPagina);
 
   </script>
 
