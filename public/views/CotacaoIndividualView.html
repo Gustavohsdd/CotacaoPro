@@ -1298,6 +1298,192 @@
       });
     }
 
+    function CotacaoIndividualScript_vincularListenerEtapas() {
+      const menuEtapas = document.getElementById('CotacaoIndividualScript_menuEtapasDropdown');
+      if (menuEtapas) {
+        menuEtapas.addEventListener('click', function(event) {
+          event.preventDefault();
+          const target = event.target.closest('a');
+          if (target && target.dataset.action) {
+            const action = target.dataset.action;
+            console.log(`Ação do menu Etapas acionada: ${action}`);
+
+            // Esconde os dropdowns abertos
+            document.querySelectorAll('.dropdown-menu-content.show').forEach(openContent => {
+              openContent.classList.remove('show');
+              openContent.previousElementSibling.classList.remove('open');
+            });
+
+            // Mapeia a ação para a função correspondente
+            switch (action) {
+              case 'etapa_contagem_estoque':
+                // A função EtapasScript_abrirModalContagemEstoque() será criada a seguir
+                EtapasScript_abrirModalContagemEstoque();
+                break;
+              case 'etapa_retirar_produtos':
+                // A função EtapasScript_abrirModalRetirarProdutos() será criada a seguir
+                EtapasScript_abrirModalRetirarProdutos();
+                break;
+                // Adicione outros cases para as demais etapas aqui no futuro...
+              default:
+                CotacaoIndividualScript_exibirFeedback(`Ação '${action}' não implementada.`, true);
+                console.warn(`Ação do menu de etapas não reconhecida: ${action}`);
+            }
+          }
+        });
+      }
+    }
+
+    function EtapasScript_abrirModalContagemEstoque() {
+      const modalOverlay = document.getElementById('EtapasScript_modalContagemEstoqueOverlay');
+      const tbody = document.getElementById('EtapasScript_tbodyModalContagemEstoque');
+      if (!modalOverlay || !tbody) {
+        console.error('Elementos do modal de contagem de estoque não encontrados.');
+        return;
+      }
+
+      tbody.innerHTML = ''; // Limpa a tabela
+      const produtosUnicos = {};
+
+      // Agrupa os dados por produto principal para a contagem
+      (window.CotacaoIndividualScript_dadosOriginaisCotacao || []).forEach(grupo => {
+        if (grupo.Produto && !produtosUnicos[grupo.Produto]) {
+          produtosUnicos[grupo.Produto] = {
+            nome: grupo.Produto,
+            estoqueMinimo: CotacaoIndividualScript_parseNumeroPtBr(grupo.estoqueMinimoProdutoPrincipal) || 0,
+            estoqueAtual: CotacaoIndividualScript_parseNumeroPtBr(grupo.estoqueAtualProdutoPrincipal) || 0,
+            demandaMedia: CotacaoIndividualScript_parseNumeroPtBr(grupo.demandaMediaProdutoPrincipal) || 0,
+          };
+        }
+      });
+
+
+      Object.values(produtosUnicos).forEach(produto => {
+        const sugestaoCompra = Math.max(0, produto.estoqueMinimo - produto.estoqueAtual);
+        const tr = document.createElement('tr');
+        tr.dataset.produtoNome = produto.nome;
+        tr.innerHTML = `
+                <td class="p-2 border-b">${produto.nome}</td>
+                <td class="p-2 border-b"><input type="number" step="any" class="w-full p-1 border rounded" data-field="Estoque Minimo" value="${produto.estoqueMinimo}"></td>
+                <td class="p-2 border-b"><input type="number" step="any" class="w-full p-1 border rounded" data-field="Estoque Atual" value="${produto.estoqueAtual}"></td>
+                <td class="p-2 border-b"><input type="number" step="any" class="w-full p-1 border rounded" data-field="Comprar" value="${sugestaoCompra}"></td>
+            `;
+        tbody.appendChild(tr);
+      });
+
+      modalOverlay.classList.add('active');
+    }
+
+    function EtapasScript_fecharModal(modalId) {
+        const modalOverlay = document.getElementById(modalId);
+        if (modalOverlay) {
+            modalOverlay.classList.remove('active');
+        }
+    }
+
+    async function EtapasScript_salvarContagemEstoque() {
+        const btnSalvar = document.getElementById('EtapasScript_btnSalvarModalContagem');
+        CotacaoIndividualScript_mostrarLoadingOverlay(true, 'Salvando contagem...');
+
+        const tbody = document.getElementById('EtapasScript_tbodyModalContagemEstoque');
+        const dadosContagem = [];
+        tbody.querySelectorAll('tr').forEach(tr => {
+            const nomeProduto = tr.dataset.produtoNome;
+            if (nomeProduto) {
+                const estoqueMinimoInput = tr.querySelector('[data-field="Estoque Minimo"]');
+                const estoqueAtualInput = tr.querySelector('[data-field="Estoque Atual"]');
+                const comprarInput = tr.querySelector('[data-field="Comprar"]');
+
+                dadosContagem.push({
+                    Produto: nomeProduto,
+                    'Estoque Mínimo': estoqueMinimoInput ? CotacaoIndividualScript_parseNumeroPtBr(estoqueMinimoInput.value) : 0,
+                    'Estoque Atual': estoqueAtualInput ? CotacaoIndividualScript_parseNumeroPtBr(estoqueAtualInput.value) : 0,
+                    'Comprar': comprarInput ? CotacaoIndividualScript_parseNumeroPtBr(comprarInput.value) : 0,
+                });
+            }
+        });
+
+        const response = await CotacaoIndividualScript_callApi('salvar-contagem', 'POST', {
+            idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+            dadosContagem: dadosContagem
+        });
+
+        CotacaoIndividualScript_mostrarLoadingOverlay(false);
+        if (response.success) {
+            EtapasScript_fecharModal('EtapasScript_modalContagemEstoqueOverlay');
+            CotacaoIndividualScript_exibirFeedback('Contagem de estoque salva com sucesso! Recarregando dados...', false);
+            await CotacaoIndividualScript_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual); // Recarrega os dados
+        } else {
+            const feedbackModal = document.getElementById('EtapasScript_feedbackModalContagem');
+            if (feedbackModal) {
+                feedbackModal.innerHTML = `<div class="feedback-error">${response.message || 'Erro ao salvar.'}</div>`;
+            }
+        }
+    }
+
+    async function EtapasScript_confirmarRemocaoProdutos() {
+        const modalOverlay = document.getElementById('EtapasScript_modalRetirarProdutosOverlay');
+        const corpoModal = document.getElementById('EtapasScript_corpoModalRetirarProdutos');
+        const produtosParaRemover = [];
+        corpoModal.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+            produtosParaRemover.push(checkbox.value);
+        });
+
+        if (produtosParaRemover.length === 0) {
+            const feedbackModal = document.getElementById('EtapasScript_feedbackModalRetirarProdutos');
+            if (feedbackModal) {
+                feedbackModal.innerHTML = `<div class="feedback-error">Nenhum produto selecionado para remoção.</div>`;
+                setTimeout(() => { feedbackModal.innerHTML = '' }, 3000);
+            }
+            return;
+        }
+
+        CotacaoIndividualScript_mostrarLoadingOverlay(true, 'Removendo produtos...');
+
+        const response = await CotacaoIndividualScript_callApi('retirar-produtos', 'POST', {
+            idCotacao: CotacaoIndividualScript_cotacaoIdAtual,
+            nomesProdutosPrincipaisParaExcluir: produtosParaRemover
+        });
+
+        CotacaoIndividualScript_mostrarLoadingOverlay(false);
+
+        if (response.success) {
+            EtapasScript_fecharModal('EtapasScript_modalRetirarProdutosOverlay');
+            CotacaoIndividualScript_exibirFeedback('Produtos retirados com sucesso! Recarregando dados...', false);
+            await CotacaoIndividualScript_carregarDadosCotacao(CotacaoIndividualScript_cotacaoIdAtual); // Recarrega os dados
+        } else {
+            const feedbackModal = document.getElementById('EtapasScript_feedbackModalRetirarProdutos');
+            if (feedbackModal) {
+                feedbackModal.innerHTML = `<div class="feedback-error">${response.message || 'Erro ao remover produtos.'}</div>`;
+            }
+        }
+    }
+
+    function CotacaoIndividualScript_vincularListenersDosModais() {
+        // Modal de Negociação
+        document.getElementById('CotacaoIndividualScript_btnFecharModalNegociacao')?.addEventListener('click', () => EtapasScript_fecharModal('CotacaoIndividualScript_modalNegociacaoOverlay'));
+        document.getElementById('CotacaoIndividualScript_btnCancelarModalNegociacao')?.addEventListener('click', () => EtapasScript_fecharModal('CotacaoIndividualScript_modalNegociacaoOverlay'));
+        document.getElementById('CotacaoIndividualScript_btnCopiarTextoNegociacao')?.addEventListener('click', () => {
+            const textarea = document.getElementById('CotacaoIndividualScript_textareaMensagem');
+            textarea.select();
+            document.execCommand('copy');
+            CotacaoIndividualScript_exibirFeedback('Texto copiado para a área de transferência!', false, 2000);
+        });
+
+
+        // Modal de Contagem de Estoque (Etapa 1)
+        document.getElementById('EtapasScript_btnFecharModalContagemEstoque')?.addEventListener('click', () => EtapasScript_fecharModal('EtapasScript_modalContagemEstoqueOverlay'));
+        document.getElementById('EtapasScript_btnCancelarModalContagem')?.addEventListener('click', () => EtapasScript_fecharModal('EtapasScript_modalContagemEstoqueOverlay'));
+        document.getElementById('EtapasScript_btnSalvarModalContagem')?.addEventListener('click', EtapasScript_salvarContagemEstoque);
+
+        // Modal de Retirar Produtos (Etapa 2)
+        document.getElementById('EtapasScript_btnFecharModalRetirarProdutos')?.addEventListener('click', () => EtapasScript_fecharModal('EtapasScript_modalRetirarProdutosOverlay'));
+        document.getElementById('EtapasScript_btnCancelarModalRetirarProdutos')?.addEventListener('click', () => EtapasScript_fecharModal('EtapasScript_modalRetirarProdutosOverlay'));
+        document.getElementById('EtapasScript_btnConfirmarRemocaoModal')?.addEventListener('click', EtapasScript_confirmarRemocaoProdutos);
+
+        // Adicione listeners para outros modais aqui...
+    }
+
     //----------------------------------------------------------------------------------------------------
     // LÓGICA DE DADOS E RENDERIZAÇÃO
     //----------------------------------------------------------------------------------------------------
@@ -1684,7 +1870,9 @@
     async function CotacaoIndividualScript_inicializarPagina() {
       console.log("CotacaoIndividualScript: Inicializando...");
       CotacaoIndividualScript_vincularDropdowns();
-      
+      CotacaoIndividualScript_vincularListenerEtapas();
+      CotacaoIndividualScript_vincularListenersDosModais(); // <<<--- ADICIONE ESTA NOVA LINHA
+
       const params = new URLSearchParams(window.location.search);
       const idCotacao = params.get('idCotacao');
       const spanIdCotacao = document.getElementById(CotacaoIndividualScript_ID_COTACAO_EXIBIDO);
