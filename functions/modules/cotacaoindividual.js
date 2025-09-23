@@ -290,8 +290,7 @@ cotacaoindividualRouter.post('/salvar-celula', async (req, res) => {
         const db = admin.firestore();
         const cotacaoDocRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
 
-        // Colunas que, quando alteradas, devem ser sincronizadas com a coleção de subprodutos.
-        const COLUNAS_SINCRONIZAVEIS_COM_SUBPRODUTOS = ['SubProduto', 'Tamanho', 'UN', 'Fator'];
+        const COLUNAS_SINCRONIZAVEIS_COM_SUBPRODUTOS = ['SubProduto', 'Tamanho', 'UN', 'Fator', 'NCM', 'CST', 'CFOP', 'Categoria'];
 
         let resultadoFinal = {};
 
@@ -306,7 +305,6 @@ cotacaoindividualRouter.post('/salvar-celula', async (req, res) => {
             let itemAtualizado = false;
             let novoSubProdutoNome = null;
 
-            // Encontra e atualiza o item dentro da estrutura aninhada da cotação
             const produtosAtualizados = produtosArray.map(grupoProduto => {
                 if (grupoProduto.Produto === identificadoresLinha.Produto) {
                     const itemIndex = (grupoProduto.itens || []).findIndex(item =>
@@ -318,7 +316,6 @@ cotacaoindividualRouter.post('/salvar-celula', async (req, res) => {
                         const itensAtualizados = [...grupoProduto.itens];
                         const itemOriginal = itensAtualizados[itemIndex];
 
-                        // Converte o novo valor para número, se aplicável
                         const camposNumericos = ['Preço', 'Comprar', 'Fator'];
                         const valorFinal = camposNumericos.includes(colunaAlterada)
                             ? cotacaoindividual_parseNumeroPtBr(novoValor)
@@ -326,9 +323,7 @@ cotacaoindividualRouter.post('/salvar-celula', async (req, res) => {
 
                         itensAtualizados[itemIndex] = { ...itemOriginal, [colunaAlterada]: valorFinal };
 
-                        // Recalcula campos dependentes se uma coluna "gatilho" foi alterada
-                        const colunasTriggerCalculo = ['Preço', 'Comprar', 'Fator'];
-                        if (colunasTriggerCalculo.includes(colunaAlterada)) {
+                        if (colunaAlterada === 'Preço' || colunaAlterada === 'Comprar' || colunaAlterada === 'Fator') {
                             const preco = cotacaoindividual_parseNumeroPtBr(itensAtualizados[itemIndex]['Preço']) || 0;
                             const comprar = cotacaoindividual_parseNumeroPtBr(itensAtualizados[itemIndex]['Comprar']) || 0;
                             const fator = cotacaoindividual_parseNumeroPtBr(itensAtualizados[itemIndex]['Fator']) || 0;
@@ -337,16 +332,11 @@ cotacaoindividualRouter.post('/salvar-celula', async (req, res) => {
                             itensAtualizados[itemIndex]['Preço por Fator'] = (fator !== 0) ? (preco / fator) : 0;
                         }
 
-                        // Se o nome do SubProduto mudou, precisamos do novo nome para o retorno
                         if (colunaAlterada === 'SubProduto') {
                             novoSubProdutoNome = novoValor;
                         }
 
                         itemAtualizado = true;
-                        resultadoFinal.valoresCalculados = {
-                            valorTotal: itensAtualizados[itemIndex]['Valor Total'],
-                            precoPorFator: itensAtualizados[itemIndex]['Preço por Fator']
-                        };
 
                         return { ...grupoProduto, itens: itensAtualizados };
                     }
@@ -358,10 +348,8 @@ cotacaoindividualRouter.post('/salvar-celula', async (req, res) => {
                 throw new Error("Item específico não foi encontrado na cotação para ser atualizado.");
             }
 
-            // Atualiza o documento da cotação com o array de produtos modificado
             transaction.update(cotacaoDocRef, { produtos: produtosAtualizados });
 
-            // Lógica para sincronizar com a coleção 'subprodutos'
             if (COLUNAS_SINCRONIZAVEIS_COM_SUBPRODUTOS.includes(colunaAlterada)) {
                 const subProdutosQuery = await db.collection(SUBPRODUTOS_COLLECTION)
                     .where('Produto Vinculado', '==', identificadoresLinha.Produto)
@@ -379,6 +367,7 @@ cotacaoindividualRouter.post('/salvar-celula', async (req, res) => {
                     logger.warn(`Sincronização: Subproduto correspondente não encontrado para ${JSON.stringify(identificadoresLinha)}.`);
                 }
             }
+
             if (novoSubProdutoNome) {
                 resultadoFinal.novoSubProdutoNomeSeAlterado = novoSubProdutoNome;
             }
@@ -491,6 +480,8 @@ cotacaoindividualRouter.post('/acrescentar-itens', async (req, res) => {
             if (!cotacaoDoc.exists) {
                 throw new Error("Cotação existente não foi encontrada.");
             }
+            const cotacaoData = cotacaoDoc.data();
+            let produtosNaCotacao = cotacaoData.produtos || [];
 
             const [todosSubProdutosSnap, todosProdutosSnap] = await Promise.all([
                 db.collection(SUBPRODUTOS_COLLECTION).get(),
@@ -505,19 +496,23 @@ cotacaoindividualRouter.post('/acrescentar-itens', async (req, res) => {
                 return map;
             }, {});
 
+            const selecoesLowerCase = opcoesCriacao.selecoes.map(s => String(s).toLowerCase());
             let subProdutosFiltrados = [];
-            const { tipo, selecoes } = opcoesCriacao;
-            const selecoesLowerCase = selecoes.map(s => String(s).toLowerCase());
 
-            if (tipo === 'categoria') {
-                const nomesProdutos = new Set(todosProdutos.filter(p => p.Categoria && selecoesLowerCase.includes(String(p.Categoria).toLowerCase())).map(p => String(p.Produto).toLowerCase()));
+            // Lógica de filtragem
+            if (opcoesCriacao.tipo === 'categoria') {
+                const nomesProdutos = new Set(todosProdutos
+                    .filter(p => p.Categoria && selecoesLowerCase.includes(String(p.Categoria).toLowerCase()))
+                    .map(p => String(p.Produto).toLowerCase()));
                 subProdutosFiltrados = todosSubProdutos.filter(sp => nomesProdutos.has(String(sp["Produto Vinculado"]).toLowerCase()));
-            } else if (tipo === 'fornecedor') {
+            } else if (opcoesCriacao.tipo === 'fornecedor') {
                 subProdutosFiltrados = todosSubProdutos.filter(sp => sp.Fornecedor && selecoesLowerCase.includes(String(sp.Fornecedor).toLowerCase()));
-            } else if (tipo === 'curvaABC') {
-                const nomesProdutos = new Set(todosProdutos.filter(p => p.ABC && selecoesLowerCase.includes(String(p.ABC).toLowerCase())).map(p => String(p.Produto).toLowerCase()));
+            } else if (opcoesCriacao.tipo === 'curvaABC') {
+                const nomesProdutos = new Set(todosProdutos
+                    .filter(p => p.ABC && selecoesLowerCase.includes(String(p.ABC).toLowerCase()))
+                    .map(p => String(p.Produto).toLowerCase()));
                 subProdutosFiltrados = todosSubProdutos.filter(sp => nomesProdutos.has(String(sp["Produto Vinculado"]).toLowerCase()));
-            } else if (tipo === 'produtoEspecifico') {
+            } else if (opcoesCriacao.tipo === 'produtoEspecifico') {
                 subProdutosFiltrados = todosSubProdutos.filter(sp => sp["Produto Vinculado"] && selecoesLowerCase.includes(String(sp["Produto Vinculado"]).toLowerCase()));
             }
 
@@ -525,23 +520,77 @@ cotacaoindividualRouter.post('/acrescentar-itens', async (req, res) => {
                 return 0;
             }
 
-            const novosItens = subProdutosFiltrados.map(subProd => {
-                const produtoPrincipal = produtosMap[subProd["Produto Vinculado"]];
-                return {
-                    "Produto": subProd["Produto Vinculado"] || "", "SubProduto": subProd.SubProduto || "", "Categoria": (produtoPrincipal ? produtoPrincipal.Categoria : subProd.Categoria) || "",
-                    "Fornecedor": subProd.Fornecedor || "", "Tamanho": subProd.Tamanho || "", "UN": subProd.UN || "", "Fator": subProd.Fator || null, "NCM": subProd.NCM || "",
-                    "CST": subProd.CST || "", "CFOP": subProd.CFOP || "", "Preço": null, "Preço por Fator": null, "Comprar": null, "Valor Total": null
+            // Cria a nova estrutura de produtos agrupados para adicionar
+            const novosProdutosAgrupados = {};
+            subProdutosFiltrados.forEach(subProd => {
+                const nomeProdutoPrincipal = subProd["Produto Vinculado"] || "Sem Produto Principal";
+                if (!novosProdutosAgrupados[nomeProdutoPrincipal]) {
+                    novosProdutosAgrupados[nomeProdutoPrincipal] = {
+                        "Produto": nomeProdutoPrincipal,
+                        "Estoque Atual": null, // Valor inicial
+                        "Estoque Minimo": null, // Valor inicial
+                        "demandaMediaProdutoPrincipal": null, // Valor inicial
+                        itens: []
+                    };
+                }
+                const produtoPrincipal = produtosMap.get(nomeProdutoPrincipal);
+                const novoItem = {
+                    "SubProduto": subProd.SubProduto || "",
+                    "Categoria": subProd.Categoria || "",
+                    "Fornecedor": subProd.Fornecedor || "",
+                    "Tamanho": subProd.Tamanho || "",
+                    "UN": subProd.UN || "",
+                    "Fator": subProd.Fator || null,
+                    "NCM": subProd.NCM || "",
+                    "CST": subProd.CST || "",
+                    "CFOP": subProd.CFOP || "",
+                    "Preço": null,
+                    "Preço por Fator": null,
+                    "Comprar": null,
+                    "Valor Total": null,
+                    "_subProdutoOriginalPersistido": subProd.SubProduto // Chave para identificação
                 };
+                novosProdutosAgrupados[nomeProdutoPrincipal].itens.push(novoItem);
+
+                if (produtoPrincipal) {
+                    novosProdutosAgrupados[nomeProdutoPrincipal]["Estoque Minimo"] = produtoPrincipal["Estoque Minimo"] || null;
+                    novosProdutosAgrupados[nomeProdutoPrincipal].demandaMediaProdutoPrincipal = produtoPrincipal.DemandaMedia || null;
+                }
             });
 
-            transaction.update(cotacaoRef, { itens: admin.firestore.FieldValue.arrayUnion(...novosItens) });
-            return novosItens.length;
+            // Mescla os novos produtos com os existentes na cotação
+            const produtosExistentesMap = new Map(produtosNaCotacao.map(p => [p.Produto, p]));
+            let totalAdicionados = 0;
+
+            for (const [nomeProduto, novoGrupo] of Object.entries(novosProdutosAgrupados)) {
+                if (produtosExistentesMap.has(nomeProduto)) {
+                    const grupoExistente = produtosExistentesMap.get(nomeProduto);
+                    const itensExistentesMap = new Map((grupoExistente.itens || []).map(i => [`${i.SubProduto}-${i.Fornecedor}`, i]));
+
+                    novoGrupo.itens.forEach(novoItem => {
+                         if (!itensExistentesMap.has(`${novoItem.SubProduto}-${novoItem.Fornecedor}`)) {
+                            grupoExistente.itens.push(novoItem);
+                            totalAdicionados++;
+                         }
+                    });
+
+                } else {
+                    produtosNaCotacao.push(novoGrupo);
+                    totalAdicionados += novoGrupo.itens.length;
+                }
+            }
+
+            if (totalAdicionados > 0) {
+                transaction.update(cotacaoRef, { produtos: produtosNaCotacao });
+            }
+
+            return totalAdicionados;
         });
 
         if (numItens > 0) {
             res.status(200).json({ success: true, numItens, message: `${numItens} itens acrescentados com sucesso.` });
         } else {
-            res.status(200).json({ success: true, numItens: 0, message: "Nenhum novo item encontrado para os critérios selecionados." });
+            res.status(200).json({ success: true, numItens: 0, message: "Nenhum novo item encontrado para os critérios selecionados ou já existente." });
         }
 
     } catch (error) {
@@ -584,7 +633,7 @@ cotacaoindividualRouter.post('/salvar-contagem', async (req, res) => {
             }
         }
 
-        // 2. Atualizar 'Estoque Atual' e 'Comprar' dentro da cotação (estrutura aninhada em produtos[].itens)
+        // 2. Atualizar 'Estoque Atual' e 'Comprar' na cotação
         const cotacaoRef = db.collection(COTACOES_COLLECTION).doc(String(idCotacao));
         const cotacaoSnap = await cotacaoRef.get();
         if (!cotacaoSnap.exists) {
@@ -593,24 +642,19 @@ cotacaoindividualRouter.post('/salvar-contagem', async (req, res) => {
 
         const cotacaoData = cotacaoSnap.data();
         const produtosAtualizados = (cotacaoData.produtos || []).map(grupo => {
-            const itensAtualizados = (grupo.itens || []).map(item => {
-                const encontrado = dadosContagem.find(d =>
-                    String(d.Produto).trim() === String(grupo.Produto).trim() &&
-                    String(d.SubProduto).trim() === String(item.SubProduto || item.Subproduto).trim()
-                );
-                if (!encontrado) return item;
+            const dadosParaEsteGrupo = dadosContagem.find(d => String(d.Produto).trim() === String(grupo.Produto).trim());
+            if (!dadosParaEsteGrupo) return grupo;
 
-                const estoqueAtual = Number(encontrado['Estoque Atual'] ?? item['Estoque Atual'] ?? 0);
-                const comprar = Number(encontrado['Comprar'] ?? item['Comprar'] ?? 0);
+            const estoqueAtual = Number(dadosParaEsteGrupo['Estoque Atual'] ?? 0);
+            const comprar = Number(dadosParaEsteGrupo['Comprar'] ?? 0);
 
-                return {
-                    ...item,
-                    ['Estoque Atual']: estoqueAtual,
-                    ['Comprar']: comprar
-                };
-            });
+            const itensAtualizados = (grupo.itens || []).map(item => ({ ...item, 'Comprar': comprar }));
 
-            return { ...grupo, itens: itensAtualizados };
+            return {
+                ...grupo,
+                'Estoque Atual': estoqueAtual,
+                itens: itensAtualizados,
+            };
         });
 
         batch.update(cotacaoRef, {
