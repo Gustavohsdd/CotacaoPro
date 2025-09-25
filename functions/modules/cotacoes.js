@@ -168,7 +168,7 @@ function cotacoes_convertSheetDataToObject(data) {
  * ESTA VERSÃO FOI CORRIGIDA PARA REDUZIR O TAMANHO DO LOTE DE ESCRITA (BATCH),
  * EVITANDO O ERRO DE PAYLOAD DO FIRESTORE.
  */
-cotacoesRouter.post('/cotacoes/import', async (req, res) => {
+cotacoesRouter.post('/import', async (req, res) => {
     const SHEET_NAME = 'Cotacoes';
     // --- CORREÇÃO PRINCIPAL AQUI ---
     // Reduzimos o BATCH_SIZE drasticamente. Em vez de 450 cotações por lote,
@@ -264,7 +264,7 @@ cotacoesRouter.post('/cotacoes/import', async (req, res) => {
  * ESTA VERSÃO FOI CORRIGIDA PARA LER A NOVA ESTRUTURA DE DOCUMENTOS,
  * COM UM ARRAY 'produtos' E, DENTRO DELE, UM ARRAY 'itens' ANINHADO.
  */
-cotacoesRouter.get('/cotacoes/resumos', async (req, res) => {
+cotacoesRouter.get('/resumos', async (req, res) => {
     logger.info("API: Recebida requisição para obter resumos de cotações.");
     try {
         const db = admin.firestore();
@@ -366,7 +366,7 @@ cotacoesRouter.get('/cotacoes/opcoes-nova-cotacao', async (req, res) => {
 /**
  * Rota para criar uma nova cotação no Firestore.
  */
-cotacoesRouter.post('/cotacoes/criar', async (req, res) => {
+cotacoesRouter.post('/criar', async (req, res) => {
     logger.info("API: Recebida requisição para criar nova cotação.", { body: req.body });
     const { tipo, selecoes } = req.body;
 
